@@ -1,0 +1,503 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{hyperref}
+
+\definecolor{BladeCyan}{HTML}{39C9D6}
+\definecolor{HubYellow}{HTML}{F3E93A}
+\definecolor{CabinMagenta}{HTML}{C83AAE}
+\definecolor{EngineRed}{HTML}{A64835}
+\definecolor{TailBoomBlue}{HTML}{3F4FB5}
+\definecolor{FinPurple}{HTML}{6E1C92}
+\definecolor{TailOrange}{HTML}{E58D14}
+\definecolor{SkidGreen}{HTML}{2A8D2A}
+\definecolor{GroundGray}{HTML}{A7AEB7}
+
+\newcommand{\colorswatch}[1]{\fcolorbox{black}{#1}{\rule{1.2em}{1.2em}}}
+
+\title{UH-1 Helicopter Component and Interaction Model}
+\author{System-Level Modeling Report}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\begin{abstract}
+This report restructures the helicopter model so that it matches the architecture diagram block by block and arrow by arrow. The covered components are Blade, Main Rotor, Hub, Cabin, Tail Boom, Engine, Fin, Horizontal Stabilizer, Tail Rotor, Skid, and Ground. Main-rotor and tail-rotor force and moment generation are tied to the generated C code in \texttt{MainRotor\_ert\_rtw} and \texttt{TailRotor\_ert\_rtw}; the remaining blocks are defined as parameterized aerodynamic, propulsive, structural, and ground-interaction submodels suitable for a UH-1 class helicopter simulation.
+\end{abstract}
+
+\section{Purpose and Modeling Scope}
+
+The objective is to define a report structure that is consistent with the component layout shown in the system figure and with the interaction arrows between those components. The resulting model is not a single lumped aerodynamic block. Instead, each subsystem produces its own force, moment, or state correction, and the helicopter equations of motion assemble these contributions in the body-fixed Forward-Right-Down (FRD) frame.
+
+The total force and moment are written as
+\begin{align}
+  \mathbf{F}_{tot} &=
+  \mathbf{F}_{mr} +
+  \mathbf{F}_{hub} +
+  \mathbf{F}_{cab} +
+  \mathbf{F}_{boom} +
+  \mathbf{F}_{fin} +
+  \mathbf{F}_{hs} +
+  \mathbf{F}_{tr} +
+  \mathbf{F}_{skid} +
+  \mathbf{F}_{ground}, \\
+  \mathbf{M}_{tot} &=
+  \sum_i \mathbf{r}_i \times \mathbf{F}_i +
+  \mathbf{M}_{mr,Q} +
+  \mathbf{M}_{tr,Q} +
+  \mathbf{M}_{eng} +
+  \mathbf{M}_{ground},
+\end{align}
+where the sum runs over all force-producing components.
+
+\section{Component Decomposition From the Architecture Figure}
+
+Figure~\ref{fig:uh1-components} shows the updated divided-component view used by
+this report. The colored overlay identifies the physical placement of the main
+submodels on the UH-1 airframe and provides the geometric reference for the
+block decomposition used in the remaining sections.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{figures/components.png}
+  \caption{Updated UH-1 component decomposition used for the system-level model.}
+  \label{fig:uh1-components}
+\end{figure}
+
+The architecture figure can be interpreted as three physical zones:
+\begin{itemize}
+  \item the rotor system at the top: Blade, Rotor, Hub,
+  \item the airframe and propulsion system in the middle: Cabin, Tail Boom, Engine, Fin, Horizontal Stabilizer, Tail Rotor,
+  \item the landing and environment system at the bottom: Skid and Ground.
+\end{itemize}
+
+In the updated figure, the major regions are visually separated as follows:
+\begin{itemize}
+  \item the main blade span and rotor disk region,
+  \item the hub and mast region above the cabin roof,
+  \item the cabin and central fuselage body,
+  \item the engine doghouse and transmission housing,
+  \item the tail boom and tail pylon,
+  \item the horizontal stabilizer, fin, and tail rotor,
+  \item the landing skid assembly.
+\end{itemize}
+
+Table~\ref{tab:components} maps each block in the figure to the mathematical role it plays in the model and to the corresponding overlay color in Figure~\ref{fig:uh1-components}.
+
+\begin{longtable}{p{0.15\linewidth} p{0.20\linewidth} p{0.20\linewidth} p{0.33\linewidth}}
+\caption{Component list required by the architecture figure}
+\label{tab:components} \\
+\toprule
+Block in figure & Color in figure & Model role & Output to the helicopter model \\
+\midrule
+\endfirsthead
+\toprule
+Block in figure & Color in figure & Model role & Output to the helicopter model \\
+\midrule
+\endhead
+Blade & \colorswatch{BladeCyan} Cyan & Blade-element aerodynamics & Sectional lift, drag, inflow, and blade loading used by the rotor model \\
+Rotor & \colorswatch{BladeCyan} Cyan & Main lifting propulsor & Main-rotor thrust magnitude, induced torque, and disk orientation \\
+Hub & \colorswatch{HubYellow} Yellow & Rotor-head parasitic aerodynamics and load transfer & Hub drag, hub moment, and wake distortion near the cabin roof \\
+Cabin & \colorswatch{CabinMagenta} Magenta & Forebody fuselage aerodynamics & Body drag, side force, download, and pitching/yawing moment \\
+Tail Boom & \colorswatch{TailBoomBlue} Blue & Slender-body aft fuselage aerodynamics & Boom drag, rotor-wake download, and structural moment arm effects \\
+Engine & \colorswatch{EngineRed} Red-brown & Propulsion and drivetrain source & Shaft power, engine torque, and exhaust-flow interaction states \\
+Fin & \colorswatch{FinPurple} Purple & Vertical tail stabilizing surface & Side force and yawing moment from local sideslip \\
+Horizontal Stabilizer & \colorswatch{TailOrange} Orange & Longitudinal tail stabilizer & Lift or downforce and pitching moment from local angle of attack \\
+Tail Rotor & \colorswatch{TailOrange} Dark Orange & Anti-torque propulsor & Side force, anti-torque moment, and local induced-flow state \\
+Skid & \colorswatch{SkidGreen} Green & Landing-gear aerodynamic and contact block & Parasite drag in flight and normal/tangential reaction near the ground \\
+Ground & \colorswatch{GroundGray} Gray reference & Environmental boundary & Ground-effect correction, fountain-flow correction, and landing reaction \\
+\bottomrule
+\end{longtable}
+
+\section{Component Models}
+
+\subsection{Blade}
+
+Các hiệu ứng mô phỏng chính của thành phần cánh quạt gồm:
+\begin{itemize}
+  \item Lý thuyết phần tử cánh quạt cho bay treo, bay dọc trục (lên/xuống), bay tiến, bay ngang và bay lùi.
+  \item Lý thuyết động lượng phần tử cánh quạt (BEMT) để xác định phân bố inflow và tải khí động theo bán kính.
+  \item Độ xoắn cánh, phân bố hình học cánh theo sải và ảnh hưởng của chúng lên lực nâng, lực cản và mô men phần tử.
+  \item Mất mát đầu cánh theo Prandtl và các hiệu chỉnh tip-loss.
+  \item Vận tốc xoáy do rotor tạo ra (swirl velocity) và ảnh hưởng của nó đến công suất cảm ứng.
+  \item Lý thuyết tuần hoàn của lực nâng (circulation theory of lift) cho phần tử cánh.
+  \item Phân bố vận tốc cảm ứng, góc tấn hiệu dụng, lực nâng, lực cản và mô men khí động trên từng phần tử cánh.
+  \item Hiệu chỉnh nén được ở đầu cánh, gồm hiệu chỉnh Prandtl--Glauert và các compressibility corrections khi số Mach tăng.
+\end{itemize}
+
+\subsection{Main Rotor}
+
+Các hiệu ứng mô phỏng chính của rotor chính gồm:
+\begin{itemize}
+  \item Lý thuyết động lượng cho bay treo, bay lên, bay xuống, vùng vortex ring state (VRS) và autorotation.
+  \item Phân bố vận tốc cảm ứng trong bay tiến, inflow không đều, wake skewing và dynamic inflow.
+  \item Tip-loss correction, lực nâng rotor, mô men rotor, induced power, profile power và parasitic power.
+  \item Forward flight, bao gồm compressibility loss ở đầu cánh và reverse flow ở phía cánh lùi.
+  \item Flapping dynamics, coning, lead--lag dynamics và ảnh hưởng của hinge offset.
+  \item Blade feathering, điều khiển collective/cyclic và cơ cấu swashplate.
+  \item Coupled flap--lag motion, coupled pitch--flap motion và rotor trim.
+  \item Ground effect, wake interference và các ảnh hưởng chính của rotor trong bay thấp.
+  \item Unsteady attached flow: thin-airfoil theory, Theodorsen's theory, indicial response, sharp-edged gust, traveling gust, time-varying incident velocity và time-varying incident Mach number.
+  \item Nonuniform vertical velocity fields, blade--vortex interaction (BVI) và returning wake.
+  \item Dynamic stall, rotor wake và blade-tip vortices.
+\end{itemize}
+
+
+\subsection{Hub}
+
+Khối Hub biểu diễn tổn thất khí động và sự biến dạng wake gắn với đầu rotor, swashplate, mast và hệ fairing. Dựa trên bài tổng quan và phương pháp dự đoán của Sheehy và Clark \cite{Sheehy1976}, mô hình Hub nên bao gồm các hiệu ứng sau:
+\begin{itemize}
+  \item diện tích cản chính diện quét của hub (swept hub frontal area), là tham số chi phối chính của hub drag,
+  \item sự gia tăng áp suất động cục bộ tại vị trí hub do trường dòng của fuselage/pylon,
+  \item lực cản giao thoa giữa hub--pylon và hub--fuselage,
+  \item ảnh hưởng của hình dạng pylon, vì hình học pylon làm thay đổi vận tốc cục bộ và kiểu tách dòng ở phần pylon phía sau,
+  \item ảnh hưởng của cấu hình fairing, gồm hub trần, fairing ellipsoidal và fairing cứng,
+  \item ảnh hưởng của khoảng hở hub/pylon hoặc chiều cao trục, bao gồm sự đánh đổi giữa việc giảm interference drag và việc tăng drag của phần shaft/control rod bị lộ ra ngoài,
+  \item ảnh hưởng của làm kín khí động tại vùng tiếp giáp pylon/fairing và tại các khe cắt của cánh,
+  \item ảnh hưởng của số Mach lên các fairing dạng bluff body và các chi tiết hub không khí động,
+  \item ảnh hưởng của wake hub lên mái cabin, các phần tử cánh ở gần gốc cánh, cũng như lên empennage và inflow của tail rotor ở phía sau.
+\end{itemize}
+
+\subsection{Cabin}
+
+The Cabin block models the forebody and central fuselage as a bluff body, not as a drag-only term. Based on helicopter-fuselage studies by Filippone \cite{Filippone2007} and rotor-fuselage interaction studies by O'Brien and Smith \cite{OBrien2005}, the cabin model should include
+\begin{itemize}
+  \item parasite drag, lift, side force, and roll/pitch/yaw moments,
+  \item dependence on local angle of attack, local sideslip, local dynamic pressure, and Reynolds number,
+  \item rotor-induced download and roof upwash/downwash over the nose and cabin roof,
+  \item hub and shaft blockage effects near the cabin roof and mast station,
+  \item bluff-body pressure drag, skin-friction drag, and local separation over the rear cabin and doghouse region,
+  \item appendage drag increments if intakes, stores, fairings, or exposed fittings are retained in the airframe model.
+\end{itemize}
+
+\subsection{Tail Boom}
+
+To build a practical tail-boom model, the following items should be specified:
+\begin{itemize}
+  \item boom geometry: length, cross-section, taper, upsweep if present, reference area, and aerodynamic-center location,
+  \item boom position relative to the aircraft center of gravity and the rotor hub,
+  \item local boom velocity from body translation and body rotation,
+  \item main-rotor wake skew angle at the boom station,
+  \item local main-rotor downwash and sidewash acting on the boom,
+  \item wake shed from the cabin and hub region convecting onto the boom,
+  \item local tail-rotor or empennage interference velocity if these interactions are retained,
+  \item local dynamic pressure, angle of attack, and sideslip at the boom station,
+  \item aerodynamic coefficients \(C_{X,boom}\), \(C_{Y,boom}\), and \(C_{Z,boom}\) as functions of local incidence and wake skew,
+  \item the resulting roll, pitch, and yaw moments about the center of gravity generated by the boom force arm,
+  \item unsteady wake effects if the model must capture time-varying rotor-fuselage interaction or vibration loading.
+\end{itemize}
+
+\subsection{Engine}
+
+The Engine block should therefore output
+\begin{itemize}
+  \item throttle/governor state,
+  \item available and delivered shaft power,
+  \item engine torque and fuel-consumption rate,
+  \item drivetrain rotational-speed state,
+  \item plume velocity or momentum disturbance for nearby aerodynamic surfaces.
+\end{itemize}
+
+\subsection{Fin}
+
+The vertical fin provides directional stability. Its local side force is modeled using the sideslip experienced at the tail station:
+\begin{equation}
+  Y_{fin} =
+  \frac{1}{2}\rho V_{fin}^2 S_{fin} C_{L\alpha,fin}\alpha_{fin},
+\end{equation}
+where $\alpha_{fin}$ is the effective sidewash angle after rotor-wake and fuselage-wake corrections.
+
+\subsection{Horizontal Stabilizer}
+
+The horizontal stabilizer provides pitch-trim relief and dynamic pitch damping:
+\begin{equation}
+  Z_{hs} =
+  \frac{1}{2}\rho V_{hs}^2 S_{hs} C_{L\alpha,hs}\alpha_{hs}.
+\end{equation}
+The local angle $\alpha_{hs}$ must include body pitch rate, tail inflow, and wake skew from the main rotor.
+
+\subsection{Tail Rotor}
+Tail rotor is modeled with these feature:
+\begin{itemize}
+  \item tail-rotor geometry and installation: radius, chord, twist, blade count, shaft orientation, pusher/tractor layout, and position relative to the center of gravity,
+  \item pedal command, tail-rotor collective pitch, rotor-speed ratio, drivetrain coupling to the engine, and transmission losses,
+  \item local relative velocity at the tail station from aircraft translation, body angular rates, ambient wind, crosswind, and sideward flight,
+  \item main-rotor wake downwash, sidewash, wake skew, and vortex impingement at the tail-rotor location,
+  \item blockage or immersion effects from the vertical fin, tail boom, gearbox fairing, fuselage, and horizontal stabilizer,
+  \item local induced-flow model, including induced velocity, inflow ratio, and nonuniform or dynamic inflow across the tail-rotor disk if required,
+  \item blade-section aerodynamics, including lift, drag, local angle of attack, tip-loss effects, and compressibility correction when the local Mach number is significant,
+  \item operating-regime changes between hover, climb, descent, forward flight, sideward flight, and crosswind conditions,
+  \item fuselage and tail-boom wake distortion, especially in hover and low-speed sideward flight,
+  \item tail-rotor vortex-ring-state or recirculating inflow behavior in low-speed descent or disturbed hover,
+  \item tail-rotor blade stall or retreating-blade stall under high thrust demand, high local incidence, or distorted inflow,
+  \item ground-proximity effects and reflected sidewash when the tail rotor operates close to the ground or a sloped surface,
+  \item unsteady inflow and wake fluctuations if the model must capture yaw-control transients, vibration, or rapid pedal inputs,
+  \item output quantities such as tail-rotor thrust, torque, power required, body-axis force, yawing moment about the center of gravity, and remaining anti-torque control margin.
+\end{itemize}
+
+\subsection{Skid}
+
+For modeling, the skid landing gear should include:
+\begin{itemize}
+  \item skid geometry, mass, and location relative to the fuselage and center of gravity,
+  \item skid aerodynamic drag, side force, and download in free flight,
+  \item rolling, pitching, and yawing moments generated by the skid force arm,
+  \item contact-point locations for left and right skid tubes or equivalent touchdown points,
+  \item normal contact force and sink-rate damping during landing and ground handling,
+  \item tangential friction or sliding force along the ground,
+  \item structural load transfer from the skid into the airframe,
+  \item ground clearance and possible interaction with rotor wash and fountain flow near the ground.
+\end{itemize}
+
+\subsection{Ground}
+
+Yes, the Ground block should explicitly contain the terrain model. For modeling,
+the Ground section should include:
+\begin{itemize}
+  \item terrain height or elevation profile,
+  \item terrain slope and local ground normal,
+  \item surface friction and roughness properties,
+  \item hard-ground or compliant-ground characteristics if needed,
+  \item skid-ground contact detection at each touchdown point,
+  \item aerodynamic boundary effects such as rotor in-ground effect and fountain flow.
+\end{itemize}
+
+\section{Interaction Map Matching the Arrows in the Figure}
+
+\subsection{Rotor \& Blade Interactions}
+\subsubsection{Hub}
+\subsubsection{Cabin}
+\subsubsection{Tail Boom}
+\subsubsection{Ground}
+\subsubsection{Engine}
+\subsubsection{Fin}
+\subsubsection{Horizontal Stabilizer}
+\subsubsection{Tail Rotor}
+\subsection{Hub}
+\subsubsection{Cabin}
+\subsubsection{Tail Boom}
+\subsubsection{Rotor}
+\subsection{Cabin}
+\subsubsection{Rotor}
+\subsubsection{Hub}
+\subsubsection{Ground}
+\subsubsection{Tail Boom}
+\subsubsection{Skid}
+\subsubsection{Engine}
+\subsubsection{Fin}
+\subsubsection{Horizontal Stabilizer}
+\subsubsection{Tail Rotor}
+
+\clearpage
+
+\subsection{Tailboom}
+\subsubsection{Rotor}
+\subsubsection{Hub}
+\subsubsection{Cabin}
+\subsubsection{Ground}
+\subsubsection{Engine}
+\subsubsection{Fin}
+\subsubsection{Horizontal Stabilizer}
+\subsubsection{Tail Rotor}
+\subsection{Engine}
+\subsubsection{Rotor}
+\subsubsection{Cabin}
+\subsubsection{Tail Boom}
+\subsubsection{Fin}
+\subsubsection{Horizontal Stabilizer}
+\subsubsection{Tail Rotor}
+\subsection{Fin}
+\subsubsection{Horizontal Stabilizer}
+\subsubsection{Tail Rotor}
+\subsubsection{Cabin}
+\subsubsection{Tail Boom}
+\subsubsection{Rotor}
+\subsubsection{Engine}
+\subsubsection{Ground}
+
+\clearpage
+
+\subsection{Horizontal Stabilizer}
+\subsubsection{Fin}
+\subsubsection{Tail Rotor}
+\subsubsection{Cabin}
+\subsubsection{Tail Boom}
+\subsubsection{Rotor}
+\subsubsection{Engine}
+\subsubsection{Ground}
+\subsection{Tail Rotor}
+\subsubsection{Horizontal Stabilizer}
+\subsubsection{Fin}
+\subsubsection{Cabin}
+\subsubsection{Tail Boom}
+\subsubsection{Rotor}
+\subsubsection{Engine}
+\subsubsection{Ground}
+\subsection{Skid}
+\subsubsection{Cabin}
+\subsubsection{Tail Boom}
+\subsubsection{Ground}
+
+\begin{longtable}{p{0.20\linewidth} p{0.32\linewidth} p{0.38\linewidth}}
+\caption{Interaction models required by the arrows in the architecture figure}
+\label{tab:interactions} \\
+\toprule
+Arrow in figure & Physical interpretation & State or model passed between blocks \\
+\midrule
+\endfirsthead
+\toprule
+Arrow in figure & Physical interpretation & State or model passed between blocks \\
+\midrule
+\endhead
+Blade $\leftrightarrow$ Rotor & Blade loads build the rotor thrust and torque; rotor inflow and control states define the blade loading. & Sectional inflow $\lambda(r)$, blade pitch, flapping state, elemental lift and drag, integrated $C_T$ and $C_Q$ \\
+Blade $\leftrightarrow$ Cabin/Fuselage & Rotor blades drive download and upwash over the forebody; fuselage blockage modifies blade inflow over the nose and roof. & Induced velocity over the roof, blockage factor, local perturbation to angle of attack \\
+Blade $\leftrightarrow$ Ground & The rotor wake interacts with the ground plane during hover, landing, and low-altitude flight. & In-ground-effect correction, induced-velocity reduction, fountain-flow correction \\
+Rotor $\leftrightarrow$ Hub & The rotor loads pass through the hub; the hub wake perturbs the rotor root region. & Rotor force and torque, mast loads, root inflow correction, hub drag penalty \\
+Hub $\leftrightarrow$ Cabin/Fuselage & Hub wake impinges on the cabin roof and upper fuselage; fuselage interference alters hub drag. & Roof dynamic-pressure correction, parasitic drag increment, local turbulent-wake factor \\
+Rotor $\leftrightarrow$ Engine & Engine power drives rotor speed; rotor torque loads the engine through the transmission. & Shaft torque, available power, rotor-speed command, drivetrain state \\
+Cabin/Fuselage $\leftrightarrow$ Engine & Intake and exhaust flows interact with the fuselage boundary layer and upper-deck aerodynamics. & Intake distortion state, exhaust plume velocity and temperature, drag increment \\
+Engine $\leftrightarrow$ Aft Fuselage & Engine exhaust and transmission installation influence the tail-section inflow field. & Exhaust plume state, local density correction, structural torque transfer \\
+Rotor $\leftrightarrow$ Aft Fuselage / Empennage & Main-rotor wake strikes the fin, horizontal stabilizer, and tail-rotor region. Tail surfaces also feed back through blockage and trim changes. & Wake skew angle, downwash velocity, tail dynamic-pressure correction \\
+Cabin/Tail Boom $\leftrightarrow$ Tail Rotor Region & The tail boom and cabin shed a bluff-body wake that can degrade tail-rotor inflow and empennage effectiveness. & Tail-wake deficit factor, local turbulence intensity, sidewash correction \\
+Fin $\leftrightarrow$ Horizontal Stabilizer & Mutual interference alters the local pressure field at the tail intersection. & Crossflow correction, local effective angle of attack, interference drag increment \\
+Horizontal Stabilizer $\leftrightarrow$ Tail Rotor & Tail-rotor slipstream modifies stabilizer lift; stabilizer blockage modifies tail-rotor inflow in hover and descent. & Slipstream velocity, inflow shadow factor, lift-curve correction \\
+Cabin/Tail Boom $\leftrightarrow$ Skid & Fuselage and skid exchange local flow interference and structural load paths. & Lower-fuselage drag increment, landing-load transfer path, local stagnation pressure \\
+Skid $\leftrightarrow$ Ground & Landing gear transmits touchdown loads and friction forces to the terrain. & Normal force, friction force, sink-rate damping, terrain height \\
+Tail Rotor $\leftrightarrow$ Ground & Tail-rotor thrust is modified when the tail operates close to the ground or near a sloped surface. & Tail in-ground-effect correction, reflected sidewash, control-authority change \\
+\bottomrule
+\end{longtable}
+
+\section{UH-1 Parameterization}
+
+To claim that the model is specifically a UH-1 model rather than a generic helicopter model, the following parameter groups must be assigned using UH-1 data:
+\begin{itemize}
+  \item gross mass, center of gravity, and inertia tensor,
+  \item main-rotor speed schedule, tail-rotor speed ratio, and transmission parameters,
+  \item cabin, boom, fin, stabilizer, and skid reference areas and aerodynamic coefficients,
+  \item engine power limits and governor dynamics,
+  \item ground-clearance geometry for the skid and tail-rotor station.
+\end{itemize}
+
+The generated rotor code already provides the following numerical values that should be checked against the UH-1 variant being modeled:
+\begin{itemize}
+  \item main rotor: $R_m = 7.35$, $N_{b,m}=2$, $c_m=0.53$, $a_m=5.5$, $c_{d0,m}=0.009$, $\mathbf{r}_m=[-0.165,0,-2.07]^T$,
+  \item tail rotor: $R_t = 1.29$, $N_{b,t}=2$, $c_t=0.2133$, $a_t=5.5$, $c_{d0,t}=0.002$, $\mathbf{r}_t=[-8.53,0,-2.10]^T$.
+\end{itemize}
+
+\section{Conclusion}
+
+The revised report now matches the architecture diagram at two levels. First, every block in the figure is represented as an explicit model component: Blade, Rotor, Hub, Cabin, Tail Boom, Engine, Fin, Horizontal Stabilizer, Tail Rotor, Skid, and Ground. Second, every arrow in the figure is represented as a required interaction channel, with a corresponding physical interpretation and exchanged state. This gives a report structure that is suitable for a UH-1 system model while preserving the code-derived main-rotor and tail-rotor force and moment calculations.
+
+\begin{thebibliography}{99}
+
+\bibitem{Stepniewski1979}
+W. Z. Stepniewski,
+\textit{Rotary-Wing Aerodynamics. Volume 1: Basic Theories of Rotor Aerodynamics With Application to Helicopters},
+NASA-CR-3082, 1979.
+\url{https://ntrs.nasa.gov/citations/19790013868}
+
+\bibitem{Johnson2017}
+W. Johnson,
+\textit{NDARC: NASA Design and Analysis of Rotorcraft, Theory},
+NASA/TP-2015-218751, Appendix 5, Release 1.12, August 2017.
+\url{https://ntrs.nasa.gov/citations/20170011656}
+
+\bibitem{Takahashi1990}
+M. D. Takahashi,
+\textit{A Flight-Dynamic Helicopter Mathematical Model With a Single Flap-Lag-Torsion Main Rotor},
+NASA-TM-102267, 1990.
+\url{https://ntrs.nasa.gov/citations/19910009728}
+
+\bibitem{Berry1997}
+J. D. Berry and N. Bettschart,
+\textit{Rotor-Fuselage Interaction: Analysis and Validation With Experiment},
+NASA-TM-112859, 1997.
+\url{https://ntrs.nasa.gov/citations/19970025518}
+
+\bibitem{Boyd1999}
+D. D. Boyd, Jr.,
+\textit{Aerodynamic Interaction Effects of a Helicopter Rotor and Fuselage},
+NASA, 1999.
+\url{https://ntrs.nasa.gov/citations/20000010820}
+
+\bibitem{FullScaleRotorFuselage1992}
+\textit{Full-Scale Investigation of Aerodynamic Interactions Between a Rotor and Fuselage},
+NASA NTRS record 19920031737.
+\url{https://ntrs.nasa.gov/citations/19920031737}
+
+\bibitem{Jenkins1962}
+J. L. Jenkins, Jr., M. M. Winston, and G. E. Sweet,
+\textit{A Wind-Tunnel Investigation of the Longitudinal Aerodynamic Characteristics of Two Full-Scale Helicopter Fuselage Models With Appendages},
+NASA-TN-D-1364, 1962.
+\url{https://ntrs.nasa.gov/citations/19620003760}
+
+\bibitem{Hilbert1984}
+K. B. Hilbert,
+\textit{A Mathematical Model of the UH-60 Helicopter},
+NASA-TM-85890, 1984.
+\url{https://ntrs.nasa.gov/citations/19840015585}
+
+\bibitem{Banks2000}
+D. W. Banks and H. L. Kelley,
+\textit{Exploratory Investigation of Aerodynamic Characteristics of Helicopter Tail Boom Cross-Section Models With Passive Venting},
+NASA/TP-2000-210083, 2000.
+\url{https://ntrs.nasa.gov/citations/20000067656}
+
+\bibitem{Menger1983}
+R. P. Menger, T. L. Wood, and J. T. Brieger,
+\textit{Effects of Aerodynamic Interaction Between Main and Tail Rotors on Helicopter Hover Performance and Noise},
+NASA-CR-166477, 1983.
+\url{https://ntrs.nasa.gov/citations/19830015004}
+
+\bibitem{Heyson1977}
+H. H. Heyson,
+\textit{Theoretical Study of the Effect of Ground Proximity on the Induced Efficiency of Helicopter Rotors},
+NASA-TM-X-71951, 1977.
+\url{https://ntrs.nasa.gov/citations/19770017115}
+
+\bibitem{Dimanlig1994}
+A. C. B. Dimanlig, C. P. Van Dam, and E. P. N. Duque,
+\textit{Numerical Simulation of Helicopter Engine Plume in Forward Flight},
+NASA-CR-197488, 1994.
+\url{https://ntrs.nasa.gov/citations/19950010174}
+
+\bibitem{Shaw1974}
+C. S. Shaw and J. C. Wilson,
+\textit{Wind Tunnel Investigation of Simulated Helicopter Engine Exhaust Interacting With Windstream},
+NASA-TM-X-3016, 1974.
+\url{https://ntrs.nasa.gov/citations/19740009645}
+
+\bibitem{Chaderjian2017}
+N. M. Chaderjian,
+\textit{Navier-Stokes Simulation of UH-60A Rotor/Wake Interaction Using Adaptive Mesh Refinement},
+2017.
+\url{https://ntrs.nasa.gov/citations/20170009808}
+
+\bibitem{Filippone2007}
+A. Filippone,
+\textit{Prediction of Aerodynamic Forces on a Helicopter Fuselage},
+The Aeronautical Journal, March 2007.
+
+\bibitem{OBrien2005}
+D. M. O'Brien, Jr. and M. J. Smith,
+\textit{Analysis of Rotor-Fuselage Interactions Using Various Rotor Models},
+AIAA-2005-0468, 2005.
+
+\bibitem{Sheehy1976}
+T. W. Sheehy and D. R. Clark,
+\textit{A Method for Predicting Helicopter Hub Drag},
+USAAMRDL-TR-75-43, January 1976.
+
+\end{thebibliography}
+
+\end{document}

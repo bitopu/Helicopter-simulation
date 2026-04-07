@@ -1,0 +1,30 @@
+function RTW_SidParentMap() {
+    this.sidParentMap = new Array();
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1063"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1064"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1065"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1066"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1589"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1067"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1068"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1072"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1074"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1075"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1078"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1081"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1082"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1083"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1084"] = "test_HelicopterModelingSimulation_disc_copy:1062";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:36"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:37"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:38"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:39"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:40"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:41"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:42"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:43"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.sidParentMap["test_HelicopterModelingSimulation_disc_copy:1073:44"] = "test_HelicopterModelingSimulation_disc_copy:1073";
+    this.getParentSid = function(sid) { return this.sidParentMap[sid];}
+}
+    RTW_SidParentMap.instance = new RTW_SidParentMap();

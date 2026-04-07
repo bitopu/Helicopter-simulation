@@ -1,0 +1,485 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setmainlanguage{vietnamese}
+\IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{\setmainfont{Latin Modern Roman}}
+\IfFontExistsTF{Arial}{\setsansfont{Arial}}{\setsansfont{Latin Modern Sans}}
+\IfFontExistsTF{Courier New}{\setmonofont{Courier New}}{\setmonofont{Latin Modern Mono}}
+\usepackage{amsmath,amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black,
+  pdftitle={Bao cao luc va moment cua Main Rotor va Tail Rotor},
+  pdfauthor={Codex}
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  columns=fullflexible
+}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\vect}[1]{\boldsymbol{#1}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{Báo Cáo Cách Tính Lực và Moment\\từ mã C của Main Rotor và Tail Rotor}
+\author{Phân tích trực tiếp từ \code{MainRotor_ert_rtw} và \code{TailRotor_ert_rtw}}
+\date{06/04/2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Phạm vi}
+
+Báo cáo này chỉ dựa trên mã C sinh tự động trong bốn tệp:
+\begin{itemize}[leftmargin=1.8em]
+  \item \code{MainRotor_ert_rtw/MainRotor.c}
+  \item \code{MainRotor_ert_rtw/MainRotor_data.c}
+  \item \code{TailRotor_ert_rtw/TailRotor.c}
+  \item \code{TailRotor_ert_rtw/TailRotor_data.c}
+\end{itemize}
+
+Mục tiêu là mô tả đúng cách lực và moment được tính ở đầu ra:
+\[
+  \vect{F}_m,\ \vect{M}_m \quad \text{cho main rotor}, \qquad
+  \vect{F}_t,\ \vect{M}_t \quad \text{cho tail rotor}.
+\]
+
+Tôi không dùng mô hình ground effect cũ và không dựa vào hình Simulink; mọi công
+thức dưới đây đều được rút trực tiếp từ mã C đã sinh.
+
+\section{Giao diện hai hàm tính toán}
+
+\subsection{Main rotor}
+
+\begin{lstlisting}[language=C]
+void MainRotor_step(
+  RT_MODEL_MainRotor_T *const MainRotor_M,
+  real_T SpeedM,
+  real_T CollectiveM,
+  real_T CyclicLat,
+  real_T CyclicLon,
+  real_T rho,
+  real_T wb[3],
+  real_T Vb[3],
+  real_T Fm[3],
+  real_T Mm[3]);
+\end{lstlisting}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Biến & Ý nghĩa \\
+\midrule
+\code{SpeedM} & tốc độ góc rotor chính, ký hiệu \(\Omega_m\) \\
+\code{CollectiveM} & collective pitch của main rotor \\
+\code{CyclicLat}, \code{CyclicLon} & cyclic pitch ngang và dọc \\
+\code{rho} & mật độ không khí \(\rho\) \\
+\code{wb[3]} & tốc độ góc thân \\
+\code{Vb[3]} & vận tốc thân \\
+\code{Fm[3]} & lực đầu ra của main rotor \\
+\code{Mm[3]} & moment đầu ra của main rotor \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Tail rotor}
+
+\begin{lstlisting}[language=C]
+void TailRotor_step(
+  RT_MODEL_TailRotor_T *const TailRotor_M,
+  real_T SpeedT,
+  real_T CollectiveT,
+  real_T rho,
+  real_T Ft[3],
+  real_T Mt[3]);
+\end{lstlisting}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Biến & Ý nghĩa \\
+\midrule
+\code{SpeedT} & tốc độ góc tail rotor, ký hiệu \(\Omega_t\) \\
+\code{CollectiveT} & collective pitch của tail rotor \\
+\code{rho} & mật độ không khí \(\rho\) \\
+\code{Ft[3]} & lực đầu ra của tail rotor \\
+\code{Mt[3]} & moment đầu ra của tail rotor \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Phần chung: cách mã C tính CT và CQ}
+
+Hai rotor dùng cùng một lõi blade-element/momentum được rút ra từ code.
+Khác nhau nằm ở tham số hình học và ở phần biến đổi phương lực sau khi đã có độ lớn lực.
+
+\subsection{Pitch hiệu dụng và solidity}
+
+Với mỗi rotor, mã C trước tiên tính:
+\begin{equation}
+  \bar{\theta}
+  = \frac{2}{3}\left(\theta_{\mathrm{root}} + \theta_{\mathrm{cmd}}\right)
+    + \frac{1}{2}\theta_{\mathrm{twist}},
+\end{equation}
+và
+\begin{equation}
+  \sigma = \frac{N_b c}{\pi R}.
+\end{equation}
+
+\subsection{Rời rạc bán kính cánh}
+
+Mỗi rotor chia span thành 100 đoạn đều từ
+\begin{equation}
+  r_0 = \frac{e}{R}
+\end{equation}
+đến \(1\), với
+\begin{equation}
+  \Delta r = \frac{1-e/R}{100}.
+\end{equation}
+Tại mỗi midpoint \(r_i\), code lặp Newton để tìm một inflow cục bộ \(\lambda_i\).
+
+\subsection{Phương trình Newton trong code}
+
+Từ biểu thức cập nhật trong \code{MainRotor.c} và \code{TailRotor.c}, phương trình
+mà code đang giải tại mỗi station có thể viết thành
+\begin{equation}
+  4 F_i(\lambda_i)\lambda_i^2
+  - \frac{\sigma a}{2}\left(\bar{\theta}-\lambda_i\right) = 0,
+  \label{eq:newton-balance}
+\end{equation}
+Phương trình này được dùng để tính inflow vì \(\lambda_i\) chính là ẩn duy nhất
+chưa biết tại mỗi radial station. Vế thứ nhất
+\(4F_i(\lambda_i)\lambda_i^2\) là phần thrust theo momentum theory có kể đến
+tip-loss, còn vế thứ hai
+\(\frac{\sigma a}{2}\left(\bar{\theta}-\lambda_i\right)\) là phần thrust theo
+blade-element theory với giả thiết góc tấn nhỏ. Khi hai vế này bằng nhau, code
+đã tìm được giá trị inflow cục bộ sao cho tải khí động của phần tử cánh phù hợp
+với induced flow mà rotor tự tạo ra. Nói ngắn gọn, phương trình (5) không phải
+là công thức ``đặt sẵn'' cho inflow, mà là phương trình cân bằng cần phải giải
+ra để lấy inflow.
+
+Nếu dùng công thức inflow đơn giản kiểu hover đều, ví dụ
+\(\lambda \approx \sqrt{C_T/2}\), thì sẽ chỉ thu được một giá trị trung bình cho
+toàn đĩa rotor. Trong khi đó code đang cần \(\lambda_i\) theo từng station để
+tích phân \(C_T\) và \(C_Q\), đồng thời vẫn giữ được ảnh hưởng của tip-loss và
+pitch hiệu dụng trong mô hình sinh tự động.
+
+trong đó hệ số tip-loss là
+\begin{equation}
+  F_i(\lambda_i)
+  = \frac{2}{\pi}
+    \cos^{-1}\!\left[
+      \exp\!\left(
+        -\frac{N_b}{2}\frac{1-r_i}{\lambda_i}
+      \right)
+    \right].
+  \label{eq:tip-loss}
+\end{equation}
+
+\paragraph{Lưu ý quan trọng về mã sinh tự động.}
+Điều kiện dừng trong cả hai file đều có dạng
+\code{fabs(x - x) >= 1.0E-6}, nên luôn bằng 0. Vì vậy vòng Newton thực tế
+không dừng theo hội tụ mà chạy cố định đúng 100 bước mỗi station.
+
+\subsection{Tích phân hệ số thrust và torque}
+
+Sau khi có \(\lambda_i\), code cộng dồn:
+\begin{align}
+  C_T &\approx \sum_{i=1}^{100} 4F_i\lambda_i^2 r_i \Delta r, \\
+  C_{Q_i} &\approx \sum_{i=1}^{100} 4F_i\lambda_i^3 r_i \Delta r.
+\end{align}
+
+Sau đó hệ số torque tổng là
+\begin{equation}
+  C_Q = C_{Q_i} + \frac{\sigma c_{d0}}{8}.
+\end{equation}
+
+Trong code:
+\begin{itemize}[leftmargin=1.8em]
+  \item \code{Rotor1_o3}, \code{Rotor6_o3} là \(C_T\)
+  \item \code{Rotor1_o4}, \code{Rotor6_o4} là \(C_Q\)
+\end{itemize}
+
+\subsection{Độ lớn thrust và torque vật lý}
+
+Với mỗi rotor:
+\begin{align}
+  T &= C_T\,\rho\,\pi R^2(\Omega R)^2, \\
+  Q &= C_Q\,\rho\,\pi R^5\,\Omega |\Omega|.
+\end{align}
+
+Trong code, \(T\) dùng bình phương \((\Omega R)^2\) nên luôn là độ lớn dương,
+còn \(Q\) dùng \(\Omega|\Omega|\) nên giữ dấu quay của rotor.
+
+\section{Main Rotor}
+
+\subsection{Tham số của main rotor}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Ký hiệu & Giá trị & Ý nghĩa \\
+\midrule
+\(R_m\) & \(7.35\) & bán kính rotor chính \\
+\(N_{b,m}\) & \(2\) & số cánh \\
+\(c_m\) & \(0.53\) & chord \\
+\(e_m\) & \(0\) & hinge offset \\
+\(a_m\) & \(5.5\) & lift-curve slope \\
+\(c_{d0,m}\) & \(0.009\) & profile drag coefficient \\
+\(\gamma_m\) & \(10\) & Lock number / tham số flap trong block \\
+\(\theta_{\mathrm{root},m}\) & \(0.1493\) & root pitch \\
+\(\theta_{\mathrm{twist},m}\) & \(-0.1745\) & blade twist \\
+\(\vect{r}_m\) & \([ -0.165,\ 0,\ -2.07]^T\) & vector từ mốc thân tới hub main rotor \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Độ lớn thrust của main rotor}
+
+Sau khi hoàn tất phần tích phân BEMT, code tạo độ lớn thrust:
+\begin{equation}
+  T_m = C_{T,m}\,\rho\,\pi R_m^2(\Omega_m R_m)^2.
+\end{equation}
+
+\subsection{Hướng của lực main rotor}
+
+Khác với tail rotor, main rotor không dùng hướng cố định. Ở đoạn
+\code{MainRotor.c} từ khoảng dòng 198 đến 288, code tính hai góc trung gian
+\(\alpha_m\) và \(\beta_m\) rồi lưu vào \code{tmp[0]} và \code{tmp[1]}.
+
+Hai góc này phụ thuộc vào:
+\begin{itemize}[leftmargin=1.8em]
+  \item vận tốc thân \(\vect{V}_b\)
+  \item tốc độ góc thân \(\vect{\omega}_b\) từ \code{wb[3]}
+  \item hai lệnh cyclic \code{CyclicLat}, \code{CyclicLon}
+  \item tham số \(\gamma_m\), \(\sigma_m\), \(C_{T,m}\), \(R_m\)
+\end{itemize}
+
+Nói ngắn gọn, code dùng chúng để xác định độ nghiêng của đĩa rotor trước khi
+chiếu thrust vào hệ trục thân.
+
+Sau đó lực đầu ra được ghi đúng theo:
+\begin{equation}
+  \vect{F}_m
+  =
+  \begin{bmatrix}
+    -T_m\cos\beta_m\sin\alpha_m \\
+    \phantom{-}T_m\sin\beta_m \\
+    -T_m\cos\beta_m\cos\alpha_m
+  \end{bmatrix}.
+  \label{eq:main-force}
+\end{equation}
+
+Tức là:
+\begin{align}
+  F_{m,x} &= -T_m\cos\beta_m\sin\alpha_m, \\
+  F_{m,y} &= \phantom{-}T_m\sin\beta_m, \\
+  F_{m,z} &= -T_m\cos\beta_m\cos\alpha_m.
+\end{align}
+
+Nếu bỏ ảnh hưởng của \(\vect{V}_b\), \(\vect{\omega}_b\) và cyclic pitch,
+thì \(\alpha_m=\beta_m=0\), khi đó:
+\[
+  \vect{F}_m = [0,\ 0,\ -T_m]^T.
+\]
+
+\subsection{Moment của main rotor}
+
+Code tính moment theo hai phần:
+\begin{enumerate}[leftmargin=1.8em]
+  \item moment do lực đặt lệch tâm: \(\vect{r}_m \times \vect{F}_m\)
+  \item moment cản trục rotor: \([0,\ 0,\ -Q_m]^T\)
+\end{enumerate}
+
+Vì vậy:
+\begin{equation}
+  \vect{M}_m
+  =
+  \vect{r}_m \times \vect{F}_m
+  +
+  \begin{bmatrix}
+    0 \\ 0 \\ -Q_m
+  \end{bmatrix}.
+  \label{eq:main-moment}
+\end{equation}
+
+Khai triển với \(\vect{r}_m=[x_m,\ y_m,\ z_m]^T=[-0.165,\ 0,\ -2.07]^T\):
+\begin{align}
+  M_{m,x} &= y_m F_{m,z} - z_m F_{m,y} = 2.07\,F_{m,y}, \\
+  M_{m,y} &= z_m F_{m,x} - x_m F_{m,z}
+          = -2.07\,F_{m,x} + 0.165\,F_{m,z}, \\
+  M_{m,z} &= x_m F_{m,y} - y_m F_{m,x} - Q_m
+          = -0.165\,F_{m,y} - Q_m.
+\end{align}
+
+\section{Tail Rotor}
+
+\subsection{Tham số của tail rotor}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Ký hiệu & Giá trị & Ý nghĩa \\
+\midrule
+\(R_t\) & \(1.29\) & bán kính tail rotor \\
+\(N_{b,t}\) & \(2\) & số cánh \\
+\(c_t\) & \(0.2133\) & chord \\
+\(e_t\) & \(0\) & hinge offset \\
+\(a_t\) & \(5.5\) & lift-curve slope \\
+\(c_{d0,t}\) & \(0.002\) & profile drag coefficient \\
+\(\theta_{\mathrm{root},t}\) & \(0.015\) & root pitch \\
+\(\theta_{\mathrm{twist},t}\) & \(0\) & blade twist \\
+\(\vect{r}_t\) & \([ -8.53,\ 0,\ -2.10]^T\) & vector từ mốc thân tới hub tail rotor \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Độ lớn thrust và torque của tail rotor}
+
+Phần BEMT của tail rotor giống main rotor, chỉ khác tham số số học.
+Do đó:
+\begin{align}
+  T_t &= C_{T,t}\,\rho\,\pi R_t^2(\Omega_t R_t)^2, \\
+  Q_t &= C_{Q,t}\,\rho\,\pi R_t^5\,\Omega_t |\Omega_t|.
+\end{align}
+
+\subsection{Lực tail rotor trong hệ cục bộ rotor}
+
+Ngay sau block rotor, code tạo force và torque cục bộ:
+\begin{equation}
+  \vect{F}_{t,\mathrm{local}}
+  =
+  \begin{bmatrix}
+    0 \\ 0 \\ -T_t
+  \end{bmatrix},
+  \qquad
+  \vect{M}_{t,\mathrm{local}}
+  =
+  \begin{bmatrix}
+    0 \\ 0 \\ -Q_t
+  \end{bmatrix}.
+\end{equation}
+
+\subsection{Phép quay cố định của tail rotor}
+
+Không giống main rotor, tail rotor không có \code{Vb}, \code{wb}, hay cyclic pitch.
+Hướng lực của nó được cố định bằng một phép quay \(90^\circ\) quanh trục \(x\).
+
+Code làm việc đó bằng:
+\begin{itemize}[leftmargin=1.8em]
+  \item \code{Constant3 = 90 deg}
+  \item đổi sang rad ở dòng unit conversion
+  \item tạo DCM với bộ góc \((\phi,\theta,\psi)=(90^\circ,0,0)\)
+\end{itemize}
+
+Ma trận quay tương đương là:
+\begin{equation}
+  R_x\!\left(\frac{\pi}{2}\right)
+  =
+  \begin{bmatrix}
+    1 & 0 & 0 \\
+    0 & 0 & -1 \\
+    0 & 1 & 0
+  \end{bmatrix}.
+\end{equation}
+
+Vì vậy:
+\begin{equation}
+  \vect{F}_t
+  = R_x\!\left(\frac{\pi}{2}\right)\vect{F}_{t,\mathrm{local}}
+  =
+  \begin{bmatrix}
+    0 \\ T_t \\ 0
+  \end{bmatrix},
+\end{equation}
+và
+\begin{equation}
+  \vect{M}_{Q,t}
+  = R_x\!\left(\frac{\pi}{2}\right)\vect{M}_{t,\mathrm{local}}
+  =
+  \begin{bmatrix}
+    0 \\ Q_t \\ 0
+  \end{bmatrix}.
+\end{equation}
+
+\subsection{Moment của tail rotor}
+
+Tail rotor cũng cộng hai phần:
+\begin{equation}
+  \vect{M}_t
+  =
+  \vect{r}_t \times \vect{F}_t + \vect{M}_{Q,t}.
+\end{equation}
+
+Với \(\vect{r}_t=[x_t,\ y_t,\ z_t]^T=[-8.53,\ 0,\ -2.10]^T\)
+và \(\vect{F}_t=[0,\ T_t,\ 0]^T\), ta được:
+\begin{align}
+  M_{t,x} &= y_t F_{t,z} - z_t F_{t,y}
+          = 2.10\,T_t, \\
+  M_{t,y} &= z_t F_{t,x} - x_t F_{t,z} + Q_t
+          = Q_t, \\
+  M_{t,z} &= x_t F_{t,y} - y_t F_{t,x}
+          = -8.53\,T_t.
+\end{align}
+
+Do đó đầu ra tail rotor có dạng rất gọn:
+\begin{equation}
+  \vect{F}_t =
+  \begin{bmatrix}
+    0 \\ T_t \\ 0
+  \end{bmatrix},
+  \qquad
+  \vect{M}_t =
+  \begin{bmatrix}
+    2.10\,T_t \\
+    Q_t \\
+    -8.53\,T_t
+  \end{bmatrix}.
+  \label{eq:tail-final}
+\end{equation}
+
+\section{So sánh ngắn giữa hai rotor}
+
+\begin{center}
+\begin{tabular}{@{}p{3.2cm}p{5.2cm}p{5.2cm}@{}}
+\toprule
+Đặc điểm & Main rotor & Tail rotor \\
+\midrule
+Độ lớn thrust/torque & Tính bằng BEMT 100 station & Tính bằng BEMT 100 station \\
+Hướng lực & Thay đổi theo \(\vect{V}_b\), \(\vect{\omega}_b\), cyclic & Cố định bởi quay \(90^\circ\) quanh trục \(x\) \\
+Đầu ra lực & \eqref{eq:main-force} & \([0,\ T_t,\ 0]^T\) \\
+Đầu ra moment & \(\vect{r}_m \times \vect{F}_m + [0,0,-Q_m]^T\) & \(\vect{r}_t \times \vect{F}_t + [0,Q_t,0]^T\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Kết luận}
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item Cả main rotor và tail rotor đều lấy độ lớn thrust và torque từ cùng một
+        lõi BEMT rời rạc 100 đoạn, thông qua \(C_T\) và \(C_Q\).
+  \item Main rotor phức tạp hơn vì sau khi có độ lớn thrust, code còn tính hai
+        góc nghiêng đĩa rotor từ \(\vect{V}_b\), \(\vect{\omega}_b\), cyclic
+        pitch và các tham số rotor, rồi mới chiếu thrust vào hệ trục thân.
+  \item Tail rotor đơn giản hơn: lực cục bộ luôn nằm dọc trục rotor, sau đó
+        được quay cố định \(90^\circ\) quanh trục \(x\); vì vậy đầu ra lực của
+        tail rotor luôn dọc trục \(+y\) của hệ thân trong mô hình hiện tại.
+  \item Moment của cả hai rotor đều là tổng của moment đòn bẩy
+        \(\vect{r}\times\vect{F}\) và moment cản khí động quanh trục rotor.
+\end{enumerate}
+
+\end{document}

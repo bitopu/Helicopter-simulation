@@ -1,0 +1,1 @@
+var modelInfo = {model:"MainRotor"};var modelHierarchy=[{model:"MainRotor",relativePath:"_internal.html",parent:"null"},];var AddCode = true;var ProtectedModel = false;
