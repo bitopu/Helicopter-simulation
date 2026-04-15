@@ -319,3 +319,6 @@ git push origin --delete feature/rotor-inflow-model
 10. `merge to master`
 
 Main rotor
+
+# Phân chia nhiệm vụ
+- Vui lòng xem qua nội dung phân chia nhiệm vụ tại [Hệ thống](https://docs.google.com/spreadsheets/d/1E3evOJmuEFXV8uu241oN48Fo-u8azcXVNiiyphNGNEE/edit?gid=0#gid=0)
