@@ -1,6 +1,6 @@
 ﻿# Quy Ước Tham Số
 
-Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Google Sheets](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
+Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Bảng tham số](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
 
 Quy tắc đặt tên cho tham số:
 
@@ -14,6 +14,76 @@ Quy tắc đặt tên cho tham số:
 - `_X`: mảng breakpoint đầu vào theo trục `X` của bảng tra.
 - `_Y`: mảng breakpoint đầu vào theo trục `Y` của bảng tra 2 chiều.
 - `_M`: ma trận hoặc mảng giá trị đầu ra của bảng tra.
+
+# Cách Sử Dụng `.sldd` Với File Simulink
+
+Trong project này, các Simulink Data Dictionary hiện có nằm tại:
+
+- `resources/params/Helicopter.sldd`
+- `resources/params/Rotor.sldd`
+- `resources/params/Fuselage.sldd`
+
+Mỗi file `.slx` nên được liên kết với một file `.sldd` phù hợp với phạm vi chức năng của model hoặc subsystem.
+
+Bước đầu tiên trước khi liên kết là xác định có cần tạo file `.sldd` mới hay không. Nếu chưa có dictionary phù hợp với subsystem hoặc chức năng đang phát triển, phải tạo file `.sldd` mới trong thư mục `resources/params/` trước, sau đó mới liên kết file `.slx` tới dictionary đó.
+
+Quy tắc chọn `.sldd`:
+
+- Dùng `Helicopter.sldd` cho parameter dùng chung ở cấp toàn mô hình hoặc nhiều subsystem có thể tạo liên kết từ `Helicopter.sldd` đến các file `.sldd` tiếp theo.
+- Dùng `Rotor.sldd` cho parameter chỉ thuộc logic rotor.
+- Dùng `Fuselage.sldd` cho parameter chỉ thuộc logic fuselage.
+- Với file `.slx` mới, phải xác định rõ dùng lại `.sldd` hiện có hay tạo `.sldd` mới trước khi phát triển.
+
+Cách tạo file `.sldd` mới:
+
+Quy tắc đặt tên:
+
+- Tên file `.sldd` phải ngắn gọn, rõ phạm vi chức năng, ví dụ `Rotor.sldd`, `Fuselage.sldd`, `MainRotor.sldd`.
+- File `.sldd` mới phải được lưu trong thư mục `resources/params/`.
+- Chỉ tạo `.sldd` mới khi parameter cần tách riêng theo subsystem hoặc theo gói chức năng; không tạo trùng phạm vi với dictionary đã có.
+
+Cách tạo bằng Simulink UI:
+
+Cách 1, dùng `Model Explorer`:
+
+1. Mở một model `.slx` bất kỳ hoặc mở `Model Explorer`.
+2. Trong `Model Explorer`, chọn `File > New > Data Dictionary`.
+3. Lưu file vào `resources/params/` với tên phù hợp.
+4. Mở file `.slx` cần dùng dictionary này.
+5. Vào `Model Settings > External Data`.
+6. Tại mục `Data Dictionary`, chọn file `.sldd` vừa tạo.
+7. Lưu lại model.
+
+Cách 2, tạo trực tiếp từ model:
+
+1. Mở file `.slx` cần cấu hình.
+2. Vào `Model Settings > External Data`.
+3. Tại mục `Data Dictionary`, chọn `New`.
+4. Lưu file `.sldd` mới vào `resources/params/`.
+5. Lưu lại model sau khi liên kết xong.
+
+Cách tạo bằng MATLAB command:
+
+```matlab
+Simulink.data.dictionary.create('resources/params/MainRotor.sldd');
+```
+Sau khi tạo `.sldd` mới:
+
+- Phải liên kết file `.sldd` đó với model `.slx` tương ứng.
+- Phải kiểm tra model load đúng và đọc được parameter từ dictionary.
+- Nếu dictionary mới thay thế cho dictionary cũ, cần rà soát lại toàn bộ parameter reference trong model.
+
+Cách liên kết `.sldd` bằng Simulink UI:
+
+1. Mở file `.slx` cần cấu hình.
+2. Vào `Model Settings`.
+3. Chọn `External Data`.
+4. Tại mục `Data Dictionary`, chọn `Browse`.
+5. Liên kết tới file `.sldd` phù hợp trong `resources/params/`.
+6. Lưu model sau khi liên kết xong.
+
+Cách liên kết `.sldd` bằng MATLAB command:
+
 
 # Quy Ước Interface
 
@@ -61,41 +131,6 @@ Quy tắc bổ sung:
 - Chỉ merge branch khi subsystem mới đã được review và có kết quả mô phỏng xác nhận không làm hỏng baseline.
 
 # Quy Trình Pull Push Code Simulink
-
-Do file `.slx` và một số file Simulink là file nhị phân, việc pull và push code cần tuân thủ quy trình rõ ràng để tránh xung đột và mất thay đổi. Trước khi thao tác với Git, cần bảo đảm model đã được lưu đầy đủ và đóng các file Simulink đang chỉnh sửa.
-
-Quy trình pull code:
-
-- Lưu toàn bộ thay đổi trong MATLAB/Simulink.
-- Đóng các file `.slx`, `.sldd` và project đang mở trước khi `pull`.
-- Kiểm tra trạng thái local bằng `git status`.
-- Nếu đang có thay đổi chưa commit, cần `commit` hoặc `stash` trước khi pull.
-- Thực hiện pull trên đúng branch đang làm việc.
-
-```powershell
-git checkout <ten-branch>
-git pull origin <ten-branch>
-```
-
-- Sau khi pull xong, mở lại project và kiểm tra model có load đúng, interface có đồng bộ và simulation baseline vẫn chạy được.
-
-Quy trình push code:
-
-- Chỉ push sau khi đã kiểm tra logic, parameter, interface và kết quả mô phỏng.
-- Đảm bảo không đưa lên các file tạm hoặc file phát sinh tự động như `*.asv`, `*.autosave`, `slprj/`, `codegen/`, `*.slxc`, `~$*.xlsx`.
-- Kiểm tra lại danh sách file thay đổi bằng `git status`.
-- Chỉ stage các file liên quan trực tiếp đến thay đổi, ví dụ `.slx`, `.sldd`, file interface, script khởi tạo và tài liệu liên quan.
-
-```powershell
-git add <cac-file-can-push>
-git commit -m "Mo ta ngan gon noi dung cap nhat"
-git push origin <ten-branch>
-```
-
-- Sau khi push, tạo pull request hoặc thực hiện review trước khi merge vào branch chính.
-
-Quy tắc bổ sung:
-
-- Không để nhiều người cùng sửa trực tiếp trên một file `.slx` trong cùng thời điểm nếu chưa thống nhất người phụ trách.
-- Nếu branch remote đã thay đổi cùng một file `.slx`, không cố merge thủ công như file text; cần trao đổi với người sửa liên quan và chọn cách tích hợp an toàn.
-- Khi có xung đột trên file Simulink, ưu tiên giữ một bản baseline rõ ràng rồi cập nhật lại thay đổi bằng cách chỉnh sửa trong Simulink thay vì sửa conflict trực tiếp trong Git.
+- Khi tạo một file mới phải thêm file đấy vào project mới có thể commit được.
+- Cách lạm chuột phải vào tên file và chọn `Add to project`.
+Tham chiếu thêm tại [MATLAB Source Control](https://www.mathworks.com/help/matlab/source-control.html).
