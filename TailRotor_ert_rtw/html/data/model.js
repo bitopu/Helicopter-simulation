@@ -1,1 +1,0 @@
-var modelInfo = {model:"TailRotor"};var modelHierarchy=[{model:"TailRotor",relativePath:"_internal.html",parent:"null"},];var AddCode = true;var ProtectedModel = false;
