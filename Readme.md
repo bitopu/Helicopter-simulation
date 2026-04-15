@@ -1,6 +1,6 @@
 ﻿# Quy Ước Tham Số
 
-Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Bảng tham số](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
+Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Bảng tham số](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0). Nếu có thêm viết tắt mới trong tên hệ thống, tên tín hiệu hoặc tên tham số, phải cập nhật đồng thời vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
 
 Quy tắc đặt tên cho tham số:
 
@@ -87,7 +87,7 @@ Cách liên kết `.sldd` bằng MATLAB command:
 
 # Quy Ước Interface
 
-Trước khi tạo hoặc sửa interface, cần định nghĩa rõ tên tín hiệu, hướng truyền, đơn vị, kiểu dữ liệu, kích thước và subsystem liên quan. Mỗi khi interface được thêm mới hoặc thay đổi, phải cập nhật đồng thời trong file giao diện và file theo dõi [Google Sheets](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
+Trước khi tạo hoặc sửa interface, cần định nghĩa rõ tên tín hiệu, hướng truyền, đơn vị, kiểu dữ liệu, kích thước và subsystem liên quan. Mỗi khi interface được thêm mới hoặc thay đổi, phải cập nhật đồng thời trong file giao diện và file theo dõi [Bảng interface](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0). Nếu interface sử dụng viết tắt mới hoặc thêm quy ước viết tắt mới, phải cập nhật thêm vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
 
 Quy tắc đặt tên cho interface:
 
@@ -317,3 +317,5 @@ git push origin --delete feature/rotor-inflow-model
 8. `push branch`
 9. `review`
 10. `merge to master`
+
+Heloo
