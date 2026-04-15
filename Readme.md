@@ -134,3 +134,186 @@ Quy tắc bổ sung:
 - Khi tạo một file mới phải thêm file đấy vào project mới có thể commit được.
 - Cách lạm chuột phải vào tên file và chọn `Add to project`.
 Tham chiếu thêm tại [MATLAB Source Control](https://www.mathworks.com/help/matlab/source-control.html).
+
+# Quy Trình Tạo Branch, Develop, Push Và Merge
+
+Khi phát triển một subsystem hoặc tính năng mới, cần thực hiện theo quy trình cố định để tránh ghi đè file `.slx`, giảm xung đột Git và giữ được baseline ổn định.
+
+## 1. Tạo branch mới
+
+Luôn tạo branch mới từ branch ổn định trước khi bắt đầu làm việc.
+
+Quy tắc đặt tên branch:
+
+- `feature/<ten-tinh-nang>`
+- `feature/<ten-subsystem>-<ten-tinh-nang>`
+- ví dụ: `feature/rotor-inflow-model`
+- ví dụ: `feature/fuselage-aero-update`
+
+Thực hiện bằng `Project UI`:
+
+1. Mở `Project`.
+2. Đồng bộ branch ổn định hiện tại bằng thao tác `Fetch` hoặc `Pull`.
+3. Vào `Source Control > Branch Manager`.
+4. Tạo branch mới từ `master`.
+5. Đặt tên branch, ví dụ `feature/rotor-inflow-model`.
+
+Thực hiện bằng `Git command`:
+
+```powershell
+git checkout master
+git pull origin master
+git checkout -b feature/rotor-inflow-model
+```
+
+## 2. Develop subsystem mới
+
+Không sửa trực tiếp trên file subsystem `.slx` đang làm baseline. Thay vào đó:
+
+1. Tạo file subsystem hoặc model `.slx` mới.
+2. Liên kết file `.slx` mới với `.sldd` phù hợp.
+3. Khai báo parameter mới trong `.sldd` nếu cần.
+4. Cập nhật interface và Google Sheets nếu có thay đổi tín hiệu hoặc parameter.
+5. Chạy kiểm tra mô phỏng để xác nhận subsystem mới hoạt động đúng.
+
+
+## 3. Commit local
+
+Chỉ commit các file liên quan trực tiếp đến thay đổi.
+
+Thường bao gồm:
+
+- file `.slx` mới hoặc file `.slx` đã tích hợp
+- file `.sldd`
+- file interface
+- tài liệu liên quan như `Readme.md`
+
+Thực hiện bằng `Project UI`:
+
+1. Save toàn bộ model và dictionary.
+2. Với file mới, chuột phải vào file và chọn `Add to Project`.
+3. Vào `Source Control`.
+4. Chọn các file cần commit.
+5. Nhập message commit.
+6. Chọn `Commit`.
+
+Thực hiện bằng `Git command`:
+
+```powershell
+git status
+git add <cac-file-lien-quan>
+git commit -m "Add rotor inflow subsystem and dictionary updates"
+```
+
+## 4. Push branch lên remote
+
+Sau khi commit xong, push branch mới lên remote:
+
+Thực hiện bằng `Project UI`:
+
+1. Vào `Source Control`.
+2. Chọn `Push`.
+3. Nếu là lần đầu push branch mới, chọn remote branch tương ứng hoặc tạo branch remote mới cùng tên.
+
+Thực hiện bằng `Git command`:
+
+```powershell
+git push -u origin feature/rotor-inflow-model
+```
+
+Sau lần đầu, các lần push tiếp theo chỉ cần:
+
+```powershell
+git push
+```
+
+
+## 5. Review trước khi merge
+
+Trước khi merge vào branch chính, cần review tối thiểu các nội dung sau:
+
+- subsystem mới có đúng logic không
+- parameter đã nằm đúng `.sldd` chưa
+- interface đã cập nhật chưa
+- simulation có chạy ổn không
+- kết quả mới có phá baseline không
+- branch có kéo kịp thay đổi mới nhất từ `master` chưa
+
+Nếu `master` đã thay đổi trong lúc đang phát triển:
+
+Thực hiện bằng `Project UI`:
+
+1. Chuyển về branch `master`.
+2. Chọn `Pull` để cập nhật `master`.
+3. Chuyển lại branch feature đang làm.
+4. Chọn `Merge` và merge `master` vào branch hiện tại.
+
+Thực hiện bằng `Git command`:
+
+```powershell
+git checkout master
+git pull origin master
+git checkout feature/rotor-inflow-model
+git merge master
+```
+
+Nếu có xung đột trên file `.slx` hoặc `.sldd`, không nên cố sửa conflict như file text. Cần mở lại trong Simulink, xác nhận bản đúng rồi commit lại kết quả tích hợp.
+
+## 6. Merge branch
+
+Merge chỉ diễn ra khi branch đã được review và xác nhận không làm hỏng baseline.
+
+Cách merge khuyến nghị:
+
+1. Tạo pull request hoặc merge request.
+2. Review thay đổi bởi ít nhất một người khác nếu làm việc theo team.
+3. Kiểm tra lại simulation lần cuối trên branch chuẩn bị merge.
+4. Merge vào `master`.
+
+Thực hiện bằng `Project UI`:
+
+1. Chuyển sang `master`.
+2. Chọn `Pull`.
+3. Chọn `Merge`.
+4. Chọn branch feature cần merge vào `master`.
+5. Sau khi merge xong, chọn `Push`.
+
+Thực hiện bằng `Git command`:
+
+```powershell
+git checkout master
+git pull origin master
+git merge --no-ff feature/rotor-inflow-model
+git push origin master
+```
+
+Sau khi merge xong:
+
+- cập nhật baseline nếu subsystem mới đã thay thế subsystem cũ
+- xóa branch đã hoàn tất nếu không còn dùng
+
+Thực hiện bằng `Project UI`:
+
+1. Chọn `Manage Branches`.
+2. Xóa branch local đã hoàn tất.
+3. Nếu cần, xóa branch remote trên server Git hoặc trên giao diện Git hosting.
+
+Thực hiện bằng `Git command`:
+
+```powershell
+git branch -d feature/rotor-inflow-model
+git push origin --delete feature/rotor-inflow-model
+```
+
+## 7. Tóm tắt workflow chuẩn
+
+1. `pull master`
+2. `create branch`
+3. `create new subsystem .slx`
+4. `link .sldd`
+5. `update parameter/interface`
+6. `simulate and verify`
+7. `commit`
+8. `push branch`
+9. `review`
+10. `merge to master`
