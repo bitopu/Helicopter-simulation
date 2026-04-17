@@ -1,40 +1,47 @@
-%% Script Setup: Chạy toàn bộ cấu hình thông số (*Params.m)
-% Mục tiêu: Tự động tìm và thực thi tất cả file thông số trong thư mục setup
+%% Script Setup: Chạy cấu hình thông số theo thứ tự ưu tiên (Level)
+% Mục tiêu: Tự động chạy Level1 trước, sau đó đến các Level cao hơn.
 
-fprintf('--- Đang khởi tạo thông số dự án ---\n');
+fprintf('--- Đang khởi tạo thông số dự án theo thứ tự ưu tiên ---\n');
 
-% 1. Xác định đường dẫn đến thư mục setup
-% Nếu script này nằm ở thư mục gốc, setupFolder = 'setup'
-% Nếu script này nằm trong setup, setupFolder = pwd
-setupFolder = 'resources\setup'; 
-
+% 1. Xác định đường dẫn
+setupFolder = fullfile('resources', 'setup'); 
 if ~exist(setupFolder, 'dir')
     error('Không tìm thấy thư mục setup tại: %s', fullfile(pwd, setupFolder));
 end
 
-% 2. Tìm tất cả các file có đuôi *Params.m
+% 2. Lấy danh sách tất cả các file *Params.m
 files = dir(fullfile(setupFolder, '*Params.m'));
 
 if isempty(files)
     fprintf(' [!] Không tìm thấy file *Params.m nào trong thư mục %s\n', setupFolder);
 else
-    % 3. Vòng lặp chạy từng file
-    for i = 1:length(files)
+    % 3. Sắp xếp danh sách file theo bảng chữ cái
+    % Vì bạn đặt tên là "Level1...", "Level2...", việc sắp xếp này 
+    % sẽ đảm bảo Level 1 luôn đứng trước Level 2.
+    [~, idx] = sort({files.name});
+    files = files(idx);
+
+    % 4. Vòng lặp chạy từng file
+    for i = length(files):-1:1
         fileName = files(i).name;
         filePath = fullfile(files(i).folder, fileName);
         
         try
-            fprintf('  [RUNNING] %s...', fileName);
-            run(filePath); % Thực thi file script
+            % Hiển thị thông tin Level đang chạy
+            fprintf('  [EXECUTING] %s...', fileName);
+            
+            % Thực thi script
+            run(filePath); 
+            
             fprintf(' Done.\n');
         catch ME
             fprintf(' FAILED!\n');
-            warning('Lỗi khi chạy file %s: %s', fileName, ME.message);
+            warning('Lỗi tại %s: %s', fileName, ME.message);
         end
     end
 end
 
 fprintf('--- Hoàn tất thiết lập môi trường ---\n');
 
-% Dọn dẹp biến tạm sau khi setup xong (tùy chọn)
-clear setupFolder files i fileName filePath ME;
+% Dọn dẹp biến tạm
+clear setupFolder files i fileName filePath ME idx;
