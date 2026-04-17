@@ -196,6 +196,36 @@ Quy tắc bổ sung:
 - Tên phải thể hiện đúng bản chất tín hiệu: `Cmd` cho lệnh điều khiển, `Fb` cho phản hồi, `State` cho trạng thái, `Flag` cho tín hiệu logic nếu cần.
 - Với tín hiệu trong bus, tên phần tử bus vẫn tuân theo kiểu `PascalCase` và không cần lặp lại tên hệ thống nếu bus đã thể hiện rõ phạm vi.
 
+# Quy Ước Goto/From Tag
+
+Các tag `Goto/From` nên được dùng cho tín hiệu nội bộ trong cùng một vùng logic hoặc trong một phạm vi subsystem rõ ràng. Không nên dùng `Goto/From` để thay thế cho interface chính thức giữa các subsystem lớn.
+
+Quy tắc đặt tên tag:
+
+`[Tên hệ thống]_[Tên tín hiệu]`
+
+- `Tên hệ thống`: viết tắt, dùng chữ in hoa.
+- `Tên tín hiệu`: viết theo kiểu `PascalCase`, mô tả đúng ý nghĩa vật lý hoặc chức năng.
+
+Ví dụ:
+
+- `RT_InducedVelocity`
+
+Quy tắc sử dụng:
+
+- Tên tag của block `Goto` và `From` phải giống nhau hoàn toàn.
+- Không cần thêm hậu tố `_Goto` hoặc `_From`.
+- Không đưa đơn vị, kiểu dữ liệu hoặc kích thước vào tên tag.
+- Nếu tín hiệu đã đi qua ranh giới subsystem lớn hoặc cần trao đổi chính thức giữa các phần của mô hình, nên dùng interface hoặc bus thay vì `Goto/From`.
+- Ưu tiên dùng `Scoped Goto/From`, hạn chế `Global Goto/From`.
+- Nếu tag chỉ dùng trong phạm vi rất nhỏ, có thể rút gọn nhưng vẫn phải giữ được ý nghĩa rõ ràng.
+
+Quy tắc bổ sung:
+
+- Dùng `Goto/From` cho tín hiệu nội bộ, không dùng để che giấu kết nối quan trọng.
+- Nếu một tag được dùng ở quá nhiều nơi, cần xem lại thiết kế và cân nhắc thay bằng bus hoặc interface rõ ràng hơn.
+- Nếu sử dụng viết tắt mới trong tên tag, phải cập nhật thêm vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
+
 # Quy Ước Cập Nhật Tính Năng
 
 Khi phát triển tính năng mới, không sửa trực tiếp trên branch chính và không cập nhật trực tiếp trên cùng file subsystem `.slx` đang dùng ổn định. Mỗi tính năng mới phải được thực hiện theo một nhánh phát triển riêng và một file subsystem riêng để dễ kiểm soát thay đổi, so sánh hành vi và rollback khi cần.
