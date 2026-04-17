@@ -17,63 +17,155 @@ Quy tắc đặt tên cho tham số:
 
 # Cách Sử Dụng `.sldd` Với File Simulink
 
-Trong project này, các Simulink Data Dictionary hiện có nằm tại:
+## Nguyên tắc quan trọng: SLDD không được commit vào Git
 
-- `resources/params/Helicopter.sldd`
-- `resources/params/Rotor.sldd`
-- `resources/params/Fuselage.sldd`
+File `.sldd` là file nhị phân do MATLAB tự động tạo và quản lý, **không được đưa vào Git**. Thay vào đó, mỗi `.sldd` phải có một file script `.m` khởi tạo tương ứng nằm trong `resources/params/`. Script này chịu trách nhiệm tạo file `.sldd`, khai báo toàn bộ parameter và thiết lập liên kết giữa các dictionary.
 
-Mỗi file `.slx` nên được liên kết với một file `.sldd` phù hợp với phạm vi chức năng của model hoặc subsystem.
+Sau mỗi lần `git pull`, bắt buộc phải chạy lại các script khởi tạo để tái tạo các file `.sldd` cục bộ.
 
-Bước đầu tiên trước khi liên kết là xác định có cần tạo file `.sldd` mới hay không. Nếu chưa có dictionary phù hợp với subsystem hoặc chức năng đang phát triển, phải tạo file `.sldd` mới trong thư mục `resources/params/` trước, sau đó mới liên kết file `.slx` tới dictionary đó.
+## Cấu trúc script khởi tạo
 
-Quy tắc chọn `.sldd`:
+Các script khởi tạo hiện có trong `resources/params/`:
 
-- Dùng `Helicopter.sldd` cho parameter dùng chung ở cấp toàn mô hình hoặc nhiều subsystem có thể tạo liên kết từ `Helicopter.sldd` đến các file `.sldd` tiếp theo.
-- Dùng `Rotor.sldd` cho parameter chỉ thuộc logic rotor.
+| Script | Dictionary được tạo | Mô tả |
+|---|---|---|
+| `HelicopterParams.m` | `Helicopter.sldd` | Parameter dùng chung toàn mô hình, liên kết tới các `.sldd` con |
+| `RotorParams.m` | `Rotor.sldd` | Parameter thuộc logic rotor |
+| `MainRotorParams.m` | `MainRotor.sldd` | Parameter riêng của main rotor |
+| `FuselageParams.m` | `Fuselage.sldd` | Parameter thuộc logic fuselage |
+
+## Quy trình sau khi pull
+
+Sau khi pull code về, chạy lần lượt các script theo thứ tự từ dictionary con lên dictionary cha:
+
+```matlab
+cd('resources/params')
+run('RotorParams.m')
+run('MainRotorParams.m')
+run('FuselageParams.m')
+run('HelicopterParams.m')   % chạy sau cùng vì có liên kết tới các .sldd con
+```
+
+## Cấu trúc một file script khởi tạo
+
+Mỗi script `.m` phải tuân theo cấu trúc sau:
+
+```matlab
+% RotorParams.m - Khởi tạo Rotor.sldd
+% Chạy script này sau khi pull để tái tạo file dictionary
+
+ddPath = fullfile(fileparts(mfilename('fullpath')), 'Rotor.sldd');
+
+% Tạo mới hoặc mở lại dictionary
+if exist(ddPath, 'file')
+    dd = Simulink.data.dictionary.open(ddPath);
+    dd.discardChanges();
+else
+    dd = Simulink.data.dictionary.create(ddPath);
+end
+
+dSec = getSection(dd, 'Design Data');
+
+% --- Khai báo parameter ---
+% addOrUpdate(dSec, 'TênParam', Simulink.Parameter(giá_trị));
+addOrUpdate(dSec, 'ROT_Radius_P',     Simulink.Parameter(5.18));
+addOrUpdate(dSec, 'ROT_NBlades_P',    Simulink.Parameter(4));
+% ... thêm parameter mới vào đây
+
+saveChanges(dd);
+disp('Rotor.sldd đã được tạo/cập nhật.');
+
+% --- Hàm nội bộ ---
+function addOrUpdate(section, name, value)
+    try
+        entry = getEntry(section, name);
+        entry.Value = value;
+    catch
+        addEntry(section, name, value);
+    end
+end
+```
+
+Script khởi tạo của dictionary cha (`Helicopter.sldd`) phải thiết lập thêm liên kết tới các dictionary con:
+
+```matlab
+% HelicopterParams.m - Khởi tạo Helicopter.sldd và liên kết các .sldd con
+
+ddPath = fullfile(fileparts(mfilename('fullpath')), 'Helicopter.sldd');
+
+if exist(ddPath, 'file')
+    dd = Simulink.data.dictionary.open(ddPath);
+    dd.discardChanges();
+else
+    dd = Simulink.data.dictionary.create(ddPath);
+end
+
+% Liên kết các dictionary con
+dd.addDataSource(fullfile(fileparts(mfilename('fullpath')), 'Rotor.sldd'));
+dd.addDataSource(fullfile(fileparts(mfilename('fullpath')), 'MainRotor.sldd'));
+dd.addDataSource(fullfile(fileparts(mfilename('fullpath')), 'Fuselage.sldd'));
+
+dSec = getSection(dd, 'Design Data');
+
+% --- Khai báo parameter dùng chung ---
+addOrUpdate(dSec, 'HELI_GravAccel_P', Simulink.Parameter(9.81));
+% ... thêm parameter mới vào đây
+
+saveChanges(dd);
+disp('Helicopter.sldd đã được tạo/cập nhật.');
+```
+
+## Quy tắc chọn `.sldd`
+
+- Dùng `Helicopter.sldd` cho parameter dùng chung ở cấp toàn mô hình; dictionary này liên kết tới các `.sldd` con.
+- Dùng `Rotor.sldd` cho parameter thuộc logic rotor chung.
+- Dùng `MainRotor.sldd` cho parameter riêng của main rotor.
 - Dùng `Fuselage.sldd` cho parameter chỉ thuộc logic fuselage.
-- Với file `.slx` mới, phải xác định rõ dùng lại `.sldd` hiện có hay tạo `.sldd` mới trước khi phát triển.
+- Với file `.slx` mới, xác định rõ dùng lại `.sldd` hiện có hay cần thêm dictionary mới trước khi phát triển.
 
-Cách tạo file `.sldd` mới:
+## Thêm parameter mới
+
+Khi cần thêm parameter mới, **không mở MATLAB Data Dictionary Editor** để thêm trực tiếp. Thay vào đó:
+
+1. Mở file script `.m` tương ứng với dictionary chứa parameter đó.
+2. Thêm dòng `addOrUpdate(dSec, 'TênParam', Simulink.Parameter(giá_trị));` vào phần khai báo parameter.
+3. Chạy lại script để cập nhật dictionary.
+4. Commit file `.m` vào Git (không commit file `.sldd`).
+
+## Tạo dictionary mới
+
+Khi cần thêm `.sldd` mới cho một subsystem:
 
 Quy tắc đặt tên:
 
-- Tên file `.sldd` phải ngắn gọn, rõ phạm vi chức năng, ví dụ `Rotor.sldd`, `Fuselage.sldd`, `MainRotor.sldd`.
-- File `.sldd` mới phải được lưu trong thư mục `resources/params/`.
-- Chỉ tạo `.sldd` mới khi parameter cần tách riêng theo subsystem hoặc theo gói chức năng; không tạo trùng phạm vi với dictionary đã có.
+- Tên file `.sldd` và script `.m` phải ngắn gọn, rõ phạm vi, ví dụ `TailRotor.sldd` / `TailRotorParams.m`.
+- Lưu script `.m` trong `resources/params/`.
+- Chỉ tạo dictionary mới khi parameter cần tách riêng theo subsystem; không tạo trùng phạm vi với dictionary đã có.
 
-Cách tạo bằng Simulink UI:
+Quy trình:
 
-Cách 1, dùng `Model Explorer`:
-
-1. Mở một model `.slx` bất kỳ hoặc mở `Model Explorer`.
-2. Trong `Model Explorer`, chọn `File > New > Data Dictionary`.
-3. Lưu file vào `resources/params/` với tên phù hợp.
-4. Mở file `.slx` cần dùng dictionary này.
-5. Vào `Model Settings > External Data`.
-6. Tại mục `Data Dictionary`, chọn file `.sldd` vừa tạo.
-7. Lưu lại model.
-
-Cách 2, tạo trực tiếp từ model:
-
-1. Mở file `.slx` cần cấu hình.
-2. Vào `Model Settings > External Data`.
-3. Tại mục `Data Dictionary`, chọn `New`.
-4. Lưu file `.sldd` mới vào `resources/params/`.
-5. Lưu lại model sau khi liên kết xong.
-
-Cách tạo bằng MATLAB command:
+1. Tạo file script `<TênSubsystem>Params.m` theo cấu trúc mẫu ở trên.
+2. Nếu dictionary mới cần được tham chiếu từ `Helicopter.sldd`, thêm lệnh `addDataSource` vào `HelicopterParams.m`.
+3. Chạy script để kiểm tra dictionary được tạo đúng.
+4. Liên kết model `.slx` tương ứng tới dictionary mới bằng MATLAB command:
 
 ```matlab
-Simulink.data.dictionary.create('resources/params/MainRotor.sldd');
+set_param('TênModel', 'DataDictionary', 'resources/params/TailRotor.sldd');
+save_system('TênModel');
 ```
-Sau khi tạo `.sldd` mới:
 
-- Phải liên kết file `.sldd` đó với model `.slx` tương ứng.
-- Phải kiểm tra model load đúng và đọc được parameter từ dictionary.
-- Nếu dictionary mới thay thế cho dictionary cũ, cần rà soát lại toàn bộ parameter reference trong model.
+5. Commit file `.m` mới và file `.slx` đã cập nhật vào Git.
 
-Cách liên kết `.sldd` bằng Simulink UI:
+## Liên kết `.sldd` với model `.slx`
+
+Liên kết bằng MATLAB command (khuyến nghị, để đảm bảo nhất quán):
+
+```matlab
+set_param('TênModel', 'DataDictionary', 'resources/params/Rotor.sldd');
+save_system('TênModel');
+```
+
+Liên kết bằng Simulink UI:
 
 1. Mở file `.slx` cần cấu hình.
 2. Vào `Model Settings`.
@@ -81,8 +173,6 @@ Cách liên kết `.sldd` bằng Simulink UI:
 4. Tại mục `Data Dictionary`, chọn `Browse`.
 5. Liên kết tới file `.sldd` phù hợp trong `resources/params/`.
 6. Lưu model sau khi liên kết xong.
-
-Cách liên kết `.sldd` bằng MATLAB command:
 
 
 # Quy Ước Interface
@@ -127,7 +217,8 @@ Quy tắc đặt tên file subsystem mới:
 
 Quy tắc bổ sung:
 
-- Nếu tính năng làm thay đổi parameter hoặc interface, phải cập nhật đồng thời `.sldd`, file interface và [Google Sheets](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
+- Nếu tính năng làm thay đổi parameter, phải cập nhật trong script `*Params.m` tương ứng (không sửa trực tiếp trong SLDD Editor), cập nhật đồng thời file interface và [Google Sheets](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
+- Chỉ commit file `.m` và `.slx`; không commit file `.sldd`.
 - Chỉ merge branch khi subsystem mới đã được review và có kết quả mô phỏng xác nhận không làm hỏng baseline.
 
 # Quy Trình Pull Push Code Simulink
@@ -171,10 +262,11 @@ git checkout -b feature/rotor-inflow-model
 Không sửa trực tiếp trên file subsystem `.slx` đang làm baseline. Thay vào đó:
 
 1. Tạo file subsystem hoặc model `.slx` mới.
-2. Liên kết file `.slx` mới với `.sldd` phù hợp.
-3. Khai báo parameter mới trong `.sldd` nếu cần.
-4. Cập nhật interface và Google Sheets nếu có thay đổi tín hiệu hoặc parameter.
-5. Chạy kiểm tra mô phỏng để xác nhận subsystem mới hoạt động đúng.
+2. Liên kết file `.slx` mới với `.sldd` phù hợp bằng MATLAB command.
+3. Nếu cần thêm parameter mới, mở file script `.m` tương ứng trong `resources/params/` và thêm vào đó, sau đó chạy lại script để cập nhật dictionary.
+4. Nếu cần tạo dictionary mới, tạo script `<TênSubsystem>Params.m` mới, cập nhật liên kết trong `HelicopterParams.m` nếu cần.
+5. Cập nhật interface và Google Sheets nếu có thay đổi tín hiệu hoặc parameter.
+6. Chạy kiểm tra mô phỏng để xác nhận subsystem mới hoạt động đúng.
 
 
 ## 3. Commit local
@@ -184,9 +276,11 @@ Chỉ commit các file liên quan trực tiếp đến thay đổi.
 Thường bao gồm:
 
 - file `.slx` mới hoặc file `.slx` đã tích hợp
-- file `.sldd`
+- file script `.m` trong `resources/params/` nếu có thay đổi parameter hoặc thêm dictionary mới
 - file interface
 - tài liệu liên quan như `Readme.md`
+
+Không commit file `.sldd` — các file này được sinh ra từ script và nằm trong `.gitignore`.
 
 Thực hiện bằng `Project UI`:
 
@@ -308,15 +402,17 @@ git push origin --delete feature/rotor-inflow-model
 ## 7. Tóm tắt workflow chuẩn
 
 1. `pull master`
-2. `create branch`
-3. `create new subsystem .slx`
-4. `link .sldd`
-5. `update parameter/interface`
-6. `simulate and verify`
-7. `commit`
-8. `push branch`
-9. `review`
-10. `merge to master`
+2. **`run init scripts`** — chạy lại các script `*Params.m` để tái tạo `.sldd`
+3. `create branch`
+4. `create new subsystem .slx`
+5. `link .sldd` — liên kết model tới dictionary bằng MATLAB command
+6. `update parameter in *Params.m script` — không sửa trực tiếp trong SLDD Editor
+7. `update interface`
+8. `simulate and verify`
+9. `commit` — chỉ commit `.slx`, `.m`, interface, docs; **không commit `.sldd`**
+10. `push branch`
+11. `review`
+12. `merge to master`
 
 Main rotor
 
