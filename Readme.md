@@ -1,6 +1,6 @@
-﻿# Quy Ước Tham Số
+# Quy Ước Tham Số
 
-Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Bảng tham số](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0). Nếu có thêm viết tắt mới trong tên hệ thống, tên tín hiệu hoặc tên tham số, phải cập nhật đồng thời vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
+Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Bảng tham số](https://docs.google.com/spreadsheets/d/1C6a4c9nDDKvUD31VtlJWN9eXvXam8aD6uYq6ENiBaF4/edit?gid=0#gid=0). Nếu có thêm viết tắt mới trong tên hệ thống, tên tín hiệu hoặc tên tham số, phải cập nhật đồng thời vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
 
 Quy tắc đặt tên cho tham số:
 
