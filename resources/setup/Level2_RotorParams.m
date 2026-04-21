@@ -38,7 +38,8 @@ dataMap = {
     'RT_BEDistFromEffSta_A', linspace(0.05,1,20)','double', 'm',      'Khoang cach tu tram hieu dung den goc la bai';
     'RT_BEMassFromHinge_A',  ones(20,1)*5.7,      'double', 'kg',     'Phan bo khoi luong la bai tai cac phan doan';
     'RT_BEDistFromHinge_A',  linspace(0.05,1,20)','double', 'm',      'Khoang cach tu ban le den cac phan doan blade element';
-};
+    'RT_AirDensity_P',       1.225,               'double', 'kg/m^2', 'Khối lượng riêng của không khí';
+    };
 
 % 6. Thao tac ghi du lieu vao SLDD
 for i = 1:size(dataMap, 1)
