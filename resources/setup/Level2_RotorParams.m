@@ -33,11 +33,15 @@ dSection = getSection(ddObj, 'Design Data');
 % Cau truc: {Ten bien, Gia tri, Kieu du lieu, Don vi, Mo ta}
 dataMap = {
     'RT_RotorRadius_P',      7.82,                'double', 'm',      'Ban kinh dinh muc cua rotor chinh';
-    'RT_BladeFlapInertia_P', 2500,                'double', 'kg*m^2', 'Mo-men quan tinh dap cua la bai';
+    'RT_BladeFlapInertia_P', 1380,                'double', 'kg*m^2', 'Mo-men quan tinh dap cua la bai';
     'RT_HingeFlapPos_P',     0.05,                'double', 'm',      'Khoang cach tu tam rotor den ban le dap';
-    'RT_BEDistFromEffSta_A', linspace(0.05,1,20)','double', 'm',      'Khoang cach tu tram hieu dung den goc la bai';
+    'RT_BEDistFromEffSta_A', linspace(0.15,1,20)','double', 'm',      'Khoang cach tu tram hieu dung den goc la bai';
     'RT_BEMassFromHinge_A',  ones(20,1)*5.7,      'double', 'kg',     'Phan bo khoi luong la bai tai cac phan doan';
     'RT_BEDistFromHinge_A',  linspace(0.05,1,20)','double', 'm',      'Khoang cach tu ban le den cac phan doan blade element';
+    'RT_BEMassFrHingeLead_A',ones(20,1)*5.7,      'double', 'kg',     'Phân bố khối lượng các phần tử cánh từ bản lề của lead';
+    'RT_BEDistFrHingeLead_A',linspace(0.05,1,20)','double', 'kg',     'Khoảng cách từ bản lề lead lag đến phần tử cánh';
+    'RT_HingeLeadPos_P',     0.15,                'double', 'NA',     'Vị trí bản lề lead lag theo R';
+    'RT_BladeLeadInertia_P', 1380,                'double', 'kg*m^2', 'Mô men quán tính lead lag của cánh';
     'RT_AirDensity_P',       1.225,               'double', 'kg/m^2', 'Khối lượng riêng của không khí';
     };
 
