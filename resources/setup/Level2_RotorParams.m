@@ -43,6 +43,10 @@ dataMap = {
     'RT_HingeLeadPos_P',     0.15,                'double', 'NA',     'Vị trí bản lề lead lag theo R';
     'RT_BladeLeadInertia_P', 1380,                'double', 'kg*m^2', 'Mô men quán tính lead lag của cánh';
     'RT_AirDensity_P',       1.225,               'double', 'kg/m^2', 'Khối lượng riêng của không khí';
+    'RT_NBlade',             4,                   'double', '',       'Số lượng cánh quạt chính';
+    'RT_BladeSegment_P',     20,                  'double', '',       'Số lượng phần tử'
+    'RT_ShaftTiltFwd_P',     3.0,                 'double', 'deg',    'Offset của trục shaft longitudinal chiều dương về phía trước';
+    'RT_ShaftTiltRight_I',   0.0,                 'double', 'deg',    'Offset của trục shaft lateral chiều dương về bên phải';
     };
 
 % 6. Thao tac ghi du lieu vao SLDD
