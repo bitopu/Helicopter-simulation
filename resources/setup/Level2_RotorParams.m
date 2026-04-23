@@ -49,7 +49,7 @@ dataMap = {
     'RT_TaperedRatio_P',       3/7,               'double', 'NA', 'Tỷ lệ thuôn cánh (tỷ lệ chord gốc / chord đầu cánh)';
     'RT_NondimRadialDisRef_P', 3/4,                'double', 'NA', 'Vị trí bán kính không thứ nguyên tại điểm cách 3/4 gốc cánh';
     'RT_SonicVel_P',       340,               'double', 'm/s', 'Vận tốc âm thanh trong không khí';
-    
+    'RT_Weight_P',       128*9.81,               'double', 'N', 'Khối lượng cả cánh quạt';
     };
 
 % 6. Thao tac ghi du lieu vao SLDD
