@@ -46,7 +46,8 @@ dataMap = {
     'RT_NBlade',             4,                   'double', '',       'Số lượng cánh quạt chính';
     'RT_BladeSegment_P',     20,                  'double', '',       'Số lượng phần tử'
     'RT_ShaftTiltFwd_P',     3.0,                 'double', 'deg',    'Offset của trục shaft longitudinal chiều dương về phía trước';
-    'RT_ShaftTiltRight_I',   0.0,                 'double', 'deg',    'Offset của trục shaft lateral chiều dương về bên phải';
+    'RT_ShaftTiltRight_P',   0.0,                 'double', 'deg',    'Offset của trục shaft lateral chiều dương về bên phải';
+    'RT_HubOffsetBody_P',    [0; 0; 0]            'double', 'm',      'Offset của CG -> Rotor Hub';
     };
 
 % 6. Thao tac ghi du lieu vao SLDD
