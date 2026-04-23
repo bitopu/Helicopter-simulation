@@ -1,6 +1,6 @@
-﻿# Quy Ước Tham Số
+# Quy Ước Tham Số
 
-Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Bảng tham số](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0). Nếu có thêm viết tắt mới trong tên hệ thống, tên tín hiệu hoặc tên tham số, phải cập nhật đồng thời vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
+Trước khi bắt đầu code, cần thiết lập đầy đủ các tham số cần thiết và khai báo chúng trong thư viện `.sldd`, bao gồm các thông tin: tên, ký hiệu, đơn vị, giá trị và người thêm. Mỗi khi một parameter được thêm mới hoặc thay đổi, phải cập nhật ngay vào file theo dõi [Bảng tham số](https://docs.google.com/spreadsheets/d/1C6a4c9nDDKvUD31VtlJWN9eXvXam8aD6uYq6ENiBaF4/edit?gid=0#gid=0). Nếu có thêm viết tắt mới trong tên hệ thống, tên tín hiệu hoặc tên tham số, phải cập nhật đồng thời vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
 
 Quy tắc đặt tên cho tham số:
 
@@ -15,75 +15,103 @@ Quy tắc đặt tên cho tham số:
 - `_Y`: mảng breakpoint đầu vào theo trục `Y` của bảng tra 2 chiều.
 - `_M`: ma trận hoặc mảng giá trị đầu ra của bảng tra.
 
-# Cách Sử Dụng `.sldd` Với File Simulink
+# Cách Tạo Và Sử Dụng `.sldd` Qua Script Params
 
-Trong project này, các Simulink Data Dictionary hiện có nằm tại:
+## Nguyên tắc quan trọng
 
-- `resources/params/Helicopter.sldd`
-- `resources/params/Rotor.sldd`
-- `resources/params/Fuselage.sldd`
+File `.sldd` không phải là nguồn chỉnh sửa chính. Nguồn chuẩn để tạo và cập nhật dictionary là các script `.m` trong `resources/setup/`. File `.sldd` chỉ là kết quả sinh ra trong `resources/params/` sau khi chạy script.
 
-Mỗi file `.slx` nên được liên kết với một file `.sldd` phù hợp với phạm vi chức năng của model hoặc subsystem.
+Quy tắc làm việc:
 
-Bước đầu tiên trước khi liên kết là xác định có cần tạo file `.sldd` mới hay không. Nếu chưa có dictionary phù hợp với subsystem hoặc chức năng đang phát triển, phải tạo file `.sldd` mới trong thư mục `resources/params/` trước, sau đó mới liên kết file `.slx` tới dictionary đó.
+- Không thêm hoặc sửa parameter trực tiếp trong Data Dictionary Editor rồi xem đó là nguồn chính.
+- Khi cần thêm hoặc cập nhật biến, phải sửa trong script `*Params.m` tương ứng.
+- Sau mỗi lần `git pull`, phải chạy lại `setup.m` để tạo lại hoặc cập nhật các file `.sldd` cục bộ.
+- Việc link giữa các `.sldd` cũng phải làm trong script, không cấu hình tay trong UI.
+- Không đưa các file `.sldd` vào source control; chỉ commit script `.m`.
 
-Quy tắc chọn `.sldd`:
+## Cấu trúc thư mục hiện tại
 
-- Dùng `Helicopter.sldd` cho parameter dùng chung ở cấp toàn mô hình hoặc nhiều subsystem có thể tạo liên kết từ `Helicopter.sldd` đến các file `.sldd` tiếp theo.
-- Dùng `Rotor.sldd` cho parameter chỉ thuộc logic rotor.
-- Dùng `Fuselage.sldd` cho parameter chỉ thuộc logic fuselage.
-- Với file `.slx` mới, phải xác định rõ dùng lại `.sldd` hiện có hay tạo `.sldd` mới trước khi phát triển.
+- Script tổng: `setup.m`
+- Script khởi tạo params: `resources/setup/`
+- File `.sldd` sinh ra: `resources/params/`
+## Thứ tự tạo phụ thuộc vào đường liên kết
 
-Cách tạo file `.sldd` mới:
+Thứ tự chạy phụ thuộc vào quan hệ cha/con giữa các dictionary:
+
+- Dictionary con phải được tạo trước dictionary cha.
+- Nếu `Helicopter.sldd` link tới `Rotor.sldd`, thì `Rotor.sldd` phải tồn tại trước.
+- Vì vậy `Level2_RotorParams.m` phải chạy trước `Level1_HelicopterParams.m`.
+
+Theo code hiện tại:
+
+- `Level2_RotorParams.m` tạo hoặc cập nhật `Rotor.sldd`
+- `Level1_HelicopterParams.m` tạo hoặc cập nhật `Helicopter.sldd` và link tới `Rotor.sldd`
+
+## Cách chạy sau khi pull
+
+Sau khi pull code về, chạy:
+
+```matlab
+run('setup.m');
+```
+## Cách tạo một file params mới
+
+Khi cần tạo dictionary mới cho một subsystem, phải tạo một script params mới trong `resources/setup/`.
 
 Quy tắc đặt tên:
 
-- Tên file `.sldd` phải ngắn gọn, rõ phạm vi chức năng, ví dụ `Rotor.sldd`, `Fuselage.sldd`, `MainRotor.sldd`.
-- File `.sldd` mới phải được lưu trong thư mục `resources/params/`.
-- Chỉ tạo `.sldd` mới khi parameter cần tách riêng theo subsystem hoặc theo gói chức năng; không tạo trùng phạm vi với dictionary đã có.
+- Dùng dạng `LevelN_<Subsystem>Params.m`
+- `LevelN` phản ánh thứ tự phụ thuộc
+- `<Subsystem>` phản ánh phạm vi chức năng
 
-Cách tạo bằng Simulink UI:
+Ví dụ:
 
-Cách 1, dùng `Model Explorer`:
+- `Level2_RotorParams.m`
+- `Level1_HelicopterParams.m`
+- `Level3_TailRotorParams.m`
 
-1. Mở một model `.slx` bất kỳ hoặc mở `Model Explorer`.
-2. Trong `Model Explorer`, chọn `File > New > Data Dictionary`.
-3. Lưu file vào `resources/params/` với tên phù hợp.
-4. Mở file `.slx` cần dùng dictionary này.
-5. Vào `Model Settings > External Data`.
-6. Tại mục `Data Dictionary`, chọn file `.sldd` vừa tạo.
-7. Lưu lại model.
+## Cách thêm biến mới trong script params
 
-Cách 2, tạo trực tiếp từ model:
+Trong các script hiện tại, biến mới được thêm qua `dataMap`.
 
-1. Mở file `.slx` cần cấu hình.
-2. Vào `Model Settings > External Data`.
-3. Tại mục `Data Dictionary`, chọn `New`.
-4. Lưu file `.sldd` mới vào `resources/params/`.
-5. Lưu lại model sau khi liên kết xong.
-
-Cách tạo bằng MATLAB command:
+Cấu trúc:
 
 ```matlab
-Simulink.data.dictionary.create('resources/params/MainRotor.sldd');
+% {Ten bien, Gia tri, Kieu du lieu, Don vi, Mo ta}
+dataMap = {
+    'RT_RotorRadius_P', 7.82, 'double', 'm', 'Ban kinh dinh muc cua rotor chinh';
+    'RT_BladeFlapInertia_P', 2500, 'double', 'kg*m^2', 'Mo-men quan tinh dap cua la bai';
+};
 ```
-Sau khi tạo `.sldd` mới:
 
-- Phải liên kết file `.sldd` đó với model `.slx` tương ứng.
-- Phải kiểm tra model load đúng và đọc được parameter từ dictionary.
-- Nếu dictionary mới thay thế cho dictionary cũ, cần rà soát lại toàn bộ parameter reference trong model.
 
-Cách liên kết `.sldd` bằng Simulink UI:
+## Cách link các dictionary trong script
 
-1. Mở file `.slx` cần cấu hình.
-2. Vào `Model Settings`.
-3. Chọn `External Data`.
-4. Tại mục `Data Dictionary`, chọn `Browse`.
-5. Liên kết tới file `.sldd` phù hợp trong `resources/params/`.
-6. Lưu model sau khi liên kết xong.
+Việc link `.sldd` phải làm trong script của dictionary cha.
 
-Cách liên kết `.sldd` bằng MATLAB command:
+Ví dụ trong `resources/setup/Level1_HelicopterParams.m`:
 
+```matlab
+if isempty(strfind(path, paramsFolder))
+    addpath(paramsFolder);
+end
+
+currentSources = ddObj.DataSources;
+isRotorLinked = any(strcmp(currentSources, rotorSlddPath));
+
+if ~isRotorLinked
+    if exist(rotorSlddPath, 'file')
+        addDataSource(ddObj, rotorSlddName);
+    end
+end
+```
+
+Ý nghĩa:
+
+- thêm `resources/params/` vào MATLAB path để `addDataSource` resolve được dictionary con
+- kiểm tra dictionary con đã được link chưa
+- chỉ `addDataSource` khi file con đã tồn tại
+- tránh link lặp
 
 # Quy Ước Interface
 
@@ -106,6 +134,36 @@ Quy tắc bổ sung:
 - Tên phải thể hiện đúng bản chất tín hiệu: `Cmd` cho lệnh điều khiển, `Fb` cho phản hồi, `State` cho trạng thái, `Flag` cho tín hiệu logic nếu cần.
 - Với tín hiệu trong bus, tên phần tử bus vẫn tuân theo kiểu `PascalCase` và không cần lặp lại tên hệ thống nếu bus đã thể hiện rõ phạm vi.
 
+# Quy Ước Goto/From Tag
+
+Các tag `Goto/From` nên được dùng cho tín hiệu nội bộ trong cùng một vùng logic hoặc trong một phạm vi subsystem rõ ràng. Không nên dùng `Goto/From` để thay thế cho interface chính thức giữa các subsystem lớn.
+
+Quy tắc đặt tên tag:
+
+`[Tên hệ thống]_[Tên tín hiệu]`
+
+- `Tên hệ thống`: viết tắt, dùng chữ in hoa.
+- `Tên tín hiệu`: viết theo kiểu `PascalCase`, mô tả đúng ý nghĩa vật lý hoặc chức năng.
+
+Ví dụ:
+
+- `RT_InducedVelocity`
+
+Quy tắc sử dụng:
+
+- Tên tag của block `Goto` và `From` phải giống nhau hoàn toàn.
+- Không cần thêm hậu tố `_Goto` hoặc `_From`.
+- Không đưa đơn vị, kiểu dữ liệu hoặc kích thước vào tên tag.
+- Nếu tín hiệu đã đi qua ranh giới subsystem lớn hoặc cần trao đổi chính thức giữa các phần của mô hình, nên dùng interface hoặc bus thay vì `Goto/From`.
+- Ưu tiên dùng `Scoped Goto/From`, hạn chế `Global Goto/From`.
+- Nếu tag chỉ dùng trong phạm vi rất nhỏ, có thể rút gọn nhưng vẫn phải giữ được ý nghĩa rõ ràng.
+
+Quy tắc bổ sung:
+
+- Dùng `Goto/From` cho tín hiệu nội bộ, không dùng để che giấu kết nối quan trọng.
+- Nếu một tag được dùng ở quá nhiều nơi, cần xem lại thiết kế và cân nhắc thay bằng bus hoặc interface rõ ràng hơn.
+- Nếu sử dụng viết tắt mới trong tên tag, phải cập nhật thêm vào [Bảng viết tắt](https://docs.google.com/spreadsheets/d/1_HTWcE8RAuG5lzPQCZ9mHIeLCMMyYjoRWsU7lW2kBN4/edit?gid=0#gid=0).
+
 # Quy Ước Cập Nhật Tính Năng
 
 Khi phát triển tính năng mới, không sửa trực tiếp trên branch chính và không cập nhật trực tiếp trên cùng file subsystem `.slx` đang dùng ổn định. Mỗi tính năng mới phải được thực hiện theo một nhánh phát triển riêng và một file subsystem riêng để dễ kiểm soát thay đổi, so sánh hành vi và rollback khi cần.
@@ -127,7 +185,8 @@ Quy tắc đặt tên file subsystem mới:
 
 Quy tắc bổ sung:
 
-- Nếu tính năng làm thay đổi parameter hoặc interface, phải cập nhật đồng thời `.sldd`, file interface và [Google Sheets](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
+- Nếu tính năng làm thay đổi parameter, phải cập nhật trong script `*Params.m` tương ứng (không sửa trực tiếp trong SLDD Editor), cập nhật đồng thời file interface và [Google Sheets](https://docs.google.com/spreadsheets/d/1OIQVjcaQ8DKk69Lxzy_aSgkTthKjZHlSkRt-WTQtv9E/edit?gid=0#gid=0).
+- Chỉ commit file `.m` và `.slx`; không commit file `.sldd`.
 - Chỉ merge branch khi subsystem mới đã được review và có kết quả mô phỏng xác nhận không làm hỏng baseline.
 
 # Quy Trình Pull Push Code Simulink
@@ -171,10 +230,11 @@ git checkout -b feature/rotor-inflow-model
 Không sửa trực tiếp trên file subsystem `.slx` đang làm baseline. Thay vào đó:
 
 1. Tạo file subsystem hoặc model `.slx` mới.
-2. Liên kết file `.slx` mới với `.sldd` phù hợp.
-3. Khai báo parameter mới trong `.sldd` nếu cần.
-4. Cập nhật interface và Google Sheets nếu có thay đổi tín hiệu hoặc parameter.
-5. Chạy kiểm tra mô phỏng để xác nhận subsystem mới hoạt động đúng.
+2. Liên kết file `.slx` mới với `.sldd` phù hợp bằng MATLAB command.
+3. Nếu cần thêm parameter mới, mở file script `.m` tương ứng trong `resources/params/` và thêm vào đó, sau đó chạy lại script để cập nhật dictionary.
+4. Nếu cần tạo dictionary mới, tạo script `<TênSubsystem>Params.m` mới, cập nhật liên kết trong `HelicopterParams.m` nếu cần.
+5. Cập nhật interface và Google Sheets nếu có thay đổi tín hiệu hoặc parameter.
+6. Chạy kiểm tra mô phỏng để xác nhận subsystem mới hoạt động đúng.
 
 
 ## 3. Commit local
@@ -184,9 +244,11 @@ Chỉ commit các file liên quan trực tiếp đến thay đổi.
 Thường bao gồm:
 
 - file `.slx` mới hoặc file `.slx` đã tích hợp
-- file `.sldd`
+- file script `.m` trong `resources/params/` nếu có thay đổi parameter hoặc thêm dictionary mới
 - file interface
 - tài liệu liên quan như `Readme.md`
+
+Không commit file `.sldd` — các file này được sinh ra từ script và nằm trong `.gitignore`.
 
 Thực hiện bằng `Project UI`:
 
@@ -308,14 +370,19 @@ git push origin --delete feature/rotor-inflow-model
 ## 7. Tóm tắt workflow chuẩn
 
 1. `pull master`
-2. `create branch`
-3. `create new subsystem .slx`
-4. `link .sldd`
-5. `update parameter/interface`
-6. `simulate and verify`
-7. `commit`
-8. `push branch`
-9. `review`
-10. `merge to master`
+2. **`run init scripts`** — chạy lại các script `*Params.m` để tái tạo `.sldd`
+3. `create branch`
+4. `create new subsystem .slx`
+5. `link .sldd` — liên kết model tới dictionary bằng MATLAB command
+6. `update parameter in *Params.m script` — không sửa trực tiếp trong SLDD Editor
+7. `update interface`
+8. `simulate and verify`
+9. `commit` — chỉ commit `.slx`, `.m`, interface, docs; **không commit `.sldd`**
+10. `push branch`
+11. `review`
+12. `merge to master`
 
 Main rotor
+
+# Phân chia nhiệm vụ
+- Vui lòng xem qua nội dung phân chia nhiệm vụ tại [Hệ thống](https://docs.google.com/spreadsheets/d/1E3evOJmuEFXV8uu241oN48Fo-u8azcXVNiiyphNGNEE/edit?gid=0#gid=0)
