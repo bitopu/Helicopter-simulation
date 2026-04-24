@@ -43,7 +43,7 @@ dataMap = {
     'RT_HingeLeadPos_P',     0.15,                'double', 'NA',     'Vị trí bản lề lead lag theo R';
     'RT_BladeLeadInertia_P', 1380,                'double', 'kg*m^2', 'Mô men quán tính lead lag của cánh';
     'RT_AirDensity_P',       1.225,               'double', 'kg/m^2', 'Khối lượng riêng của không khí';
-    
+    'RT_BladeSegment_P',     20,                  'double', '',       'Số lượng phần tử'
     'RT_SigmaAvgUH60_P',     0.0826,                'double', 'NA',     'Solidity trung bình của rotor (tỷ lệ diện tích cánh / đĩa rotor) lấy theo UH60';
     'RT_NumberOfBlades_P',   4,                'double', 'NA', 'Số lượng cánh rotor';
     'RT_TaperedRatio_P',       3/7,               'double', 'NA', 'Tỷ lệ thuôn cánh (tỷ lệ chord gốc / chord đầu cánh)';
