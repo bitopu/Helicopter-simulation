@@ -32,12 +32,12 @@ dSection = getSection(ddObj, 'Design Data');
 % 5. Danh sach tham so cap nhat
 % Cau truc: {Ten bien, Gia tri, Kieu du lieu, Don vi, Mo ta}
 dataMap = {
-    'EG_BladesInteria_P',       22000,            'double', 'kg*m^2', 'Momen quán tính của 2 blade';
-    'EG_HubInteria_P',          1500,             'double', 'kg*m^2', 'Momen quán tính của hub';
-    'EG_TurbinInteria_P',       6500,             'double', 'kg*m^2', 'Momen quán tính của turbin';
+    'EG_BladesInteria_P',       21000,            'double', 'kg*m^2', 'Momen quán tính của 2 blade';
+    'EG_HubInteria_P',          1000,             'double', 'kg*m^2', 'Momen quán tính của hub';
+    'EG_TurbinInteria_P',       500,             'double', 'kg*m^2', 'Momen quán tính của turbin';
     'EG_TailRotorGearRatio_P',  4.6,              'double', 'NA',     'Tỷ số truyền tail rotor';
     'EG_EngineTorqueMax_P',     55000,            'double', 'N*m',    'Momen xoắn tối đa của động cơ';
-    'EG_EngineGain_P',          1.33,             'double', 'NA',     'Hệ số gian Ke';
+    'EG_EngineGain_P',          354000,           'double', 'NA',     'Hệ số gain Ke';
     'EG_TauEngine10Coeff_P',    0.1,              'double', 'NA',     'Hệ số sử dụng trong tính toán tham số tau1';
     'EG_TauEngine11Coeff_P',    -0.03,            'double', 'NA',     'Hệ số sử dụng trong tính toán tham số tau1';
     'EG_TauEngine20Coeff_P',    0.6,              'double', 'NA',     'Hệ số sử dụng trong tính toán tham số tau2';
